@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JAC's Admin Panel</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --brew:   #3B1F0A;
+      --amber:  #F59E0B;
+      --text:   #1C1917;
+      --muted:  #78716C;
+      --border: #E5E7EB;
+      --bg:     #FAFAF9;
+    }
+    body { font-family: system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }
+
+    /* ── Login screen ── */
+    #loginScreen {
+      position:fixed; inset:0; z-index:999;
+      background:linear-gradient(145deg,#3B1F0A,#6B3A2A);
+      display:flex; align-items:center; justify-content:center;
+    }
+    .login-box {
+      background:#fff; border-radius:1.5rem;
+      padding:2.5rem 2rem; width:100%; max-width:400px;
+      box-shadow:0 24px 64px rgba(0,0,0,0.35);
+      margin:1rem;
+    }
+    .login-logo { text-align:center; font-size:2.5rem; margin-bottom:0.5rem; }
+    .login-title { text-align:center; font-size:1.3rem; font-weight:900; color:var(--brew); margin-bottom:0.25rem; }
+    .login-sub   { text-align:center; font-size:0.78rem; color:var(--muted); margin-bottom:1.75rem; }
+    .login-label { display:block; font-size:0.78rem; font-weight:700; color:#57534e; margin-bottom:0.4rem; }
+    .login-input {
+      width:100%; border:2px solid var(--border); border-radius:0.65rem;
+      padding:0.7rem 1rem; font-size:0.9rem; outline:none;
+      transition:border-color 0.2s,box-shadow 0.2s;
+    }
+    .login-input:focus { border-color:var(--amber); box-shadow:0 0 0 3px rgba(245,158,11,0.15); }
+    .login-btn {
+      width:100%; margin-top:1rem;
+      background:var(--brew); color:#fef3c7;
+      font-weight:700; font-size:0.95rem;
+      padding:0.85rem; border:none; border-radius:0.65rem;
+      cursor:pointer; transition:background 0.2s;
+    }
+    .login-btn:hover { background:#6B3A2A; }
+    .login-err { color:#ef4444; font-size:0.78rem; text-align:center; margin-top:0.6rem; display:none; }
+    .login-err.show { display:block; }
+    .login-hint { text-align:center; font-size:0.72rem; color:#a8a29e; margin-top:1rem; }
+
+    /* ── App layout ── */
+    #app { display:none; min-height:100vh; }
+
+    /* Header */
+    .admin-header {
+      background:var(--brew);
+      display:flex; align-items:center; justify-content:space-between;
+      padding:0.9rem 1.5rem;
+      position:sticky; top:0; z-index:50;
+      box-shadow:0 2px 12px rgba(0,0,0,0.3);
+    }
+    .admin-header-logo { color:#fef3c7; font-weight:900; font-size:1.05rem; }
+    .admin-header-logo span { color:#FBBF24; }
+    .admin-header-right { display:flex; align-items:center; gap:0.75rem; }
+    .header-btn {
+      padding:0.45rem 1rem; border-radius:0.5rem; font-size:0.8rem;
+      font-weight:700; cursor:pointer; border:none; transition:background 0.2s;
+    }
+    .btn-site  { background:#FBBF24; color:#78350F; }
+    .btn-site:hover { background:#FCD34D; }
+    .btn-logout { background:rgba(255,255,255,0.12); color:#fef3c7; }
+    .btn-logout:hover { background:rgba(255,255,255,0.2); }
+
+    /* Tabs */
+    .admin-tabs {
+      display:flex; gap:0.5rem; padding:1rem 1.5rem 0;
+      border-bottom:2px solid var(--border);
+      background:#fff;
+    }
+    .admin-tab {
+      padding:0.6rem 1.1rem; border-radius:0.5rem 0.5rem 0 0;
+      font-size:0.85rem; font-weight:700; cursor:pointer;
+      border:none; background:transparent; color:var(--muted);
+      border-bottom:3px solid transparent;
+      transition:color 0.15s, border-color 0.15s;
+    }
+    .admin-tab.active { color:var(--brew); border-color:var(--amber); }
+
+    .tab-panel { display:none; padding:1.5rem; }
+    .tab-panel.active { display:block; }
+
+    /* ── Stats row ── */
+    .stats-row {
+      display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+      gap:1rem; margin-bottom:1.5rem;
+    }
+    .stat-card {
+      background:#fff; border:1.5px solid var(--border);
+      border-radius:1rem; padding:1.1rem 1.25rem;
+    }
+    .stat-num  { font-size:1.8rem; font-weight:900; color:var(--brew); }
+    .stat-lbl  { font-size:0.72rem; color:var(--muted); margin-top:0.15rem; text-transform:uppercase; letter-spacing:0.05em; }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      display:flex; flex-wrap:wrap; gap:0.75rem; align-items:center;
+      margin-bottom:1.25rem;
+    }
+    .toolbar-search {
+      flex:1; min-width:180px;
+      border:2px solid var(--border); border-radius:0.65rem;
+      padding:0.55rem 0.9rem; font-size:0.85rem; outline:none;
+      transition:border-color 0.2s;
+    }
+    .toolbar-search:focus { border-color:var(--amber); }
+    .toolbar-select {
+      border:2px solid var(--border); border-radius:0.65rem;
+      padding:0.55rem 0.9rem; font-size:0.85rem; outline:none;
+      background:#fff; cursor:pointer;
+    }
+    .btn-add {
+      background:var(--amber); color:#78350F;
+      font-weight:700; font-size:0.85rem;
+      padding:0.6rem 1.25rem; border-radius:0.65rem;
+      border:none; cursor:pointer;
+      transition:background 0.2s, box-shadow 0.2s;
+      white-space:nowrap;
+    }
+    .btn-add:hover { background:#FCD34D; box-shadow:0 4px 12px rgba(245,158,11,0.3); }
+
+    .btn-reset {
+      background:#fff; color:#ef4444;
+      border:2px solid #fca5a5;
+      font-weight:700; font-size:0.8rem;
+      padding:0.55rem 1rem; border-radius:0.65rem;
+      cursor:pointer; white-space:nowrap;
+      transition:background 0.2s;
+    }
+    .btn-reset:hover { background:#fef2f2; }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x:auto; border-radius:1rem; border:1.5px solid var(--border); background:#fff; }
+    table { width:100%; border-collapse:collapse; font-size:0.83rem; }
+    thead { background:#fffbeb; }
+    th { padding:0.7rem 0.9rem; text-align:left; font-weight:700; color:var(--brew); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap; }
+    td { padding:0.65rem 0.9rem; border-top:1px solid var(--border); vertical-align:middle; }
+    tr:hover td { background:#fffbf0; }
+    .col-name   { font-weight:600; color:var(--text); }
+    .col-sub    { color:var(--muted); font-size:0.78rem; }
+    .col-price  { font-weight:700; color:#92400e; white-space:nowrap; font-size:0.8rem; }
+    .col-cat    { }
+    .badge {
+      display:inline-block; padding:2px 8px; border-radius:99px;
+      font-size:0.68rem; font-weight:700;
+    }
+    .badge-drinks { background:#dbeafe; color:#1d4ed8; }
+    .badge-food   { background:#dcfce7; color:#166534; }
+    .badge-pizza  { background:#fee2e2; color:#991b1b; }
+    .badge-on  { background:#dcfce7; color:#166534; }
+    .badge-off { background:#fef2f2; color:#b91c1c; }
+
+    .toggle-btn {
+      display:inline-flex; align-items:center; gap:0.35rem;
+      padding:0.3rem 0.65rem; border-radius:0.4rem;
+      font-size:0.72rem; font-weight:700; cursor:pointer;
+      border:1.5px solid; transition:all 0.15s;
+    }
+    .toggle-on  { border-color:#86efac; color:#166534; background:#f0fdf4; }
+    .toggle-on:hover  { background:#dcfce7; }
+    .toggle-off { border-color:#fca5a5; color:#b91c1c; background:#fef2f2; }
+    .toggle-off:hover { background:#fee2e2; }
+
+    .btn-edit {
+      padding:0.3rem 0.65rem; border-radius:0.4rem;
+      font-size:0.72rem; font-weight:700; cursor:pointer;
+      background:#fffbeb; border:1.5px solid #fde68a; color:#92400e;
+      transition:background 0.15s;
+    }
+    .btn-edit:hover { background:#fef3c7; }
+    .btn-del {
+      padding:0.3rem 0.65rem; border-radius:0.4rem;
+      font-size:0.72rem; font-weight:700; cursor:pointer;
+      background:#fef2f2; border:1.5px solid #fca5a5; color:#b91c1c;
+      transition:background 0.15s;
+    }
+    .btn-del:hover { background:#fee2e2; }
+    .action-cell { display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap; }
+
+    .empty-state {
+      text-align:center; padding:3rem 1rem;
+      color:var(--muted); font-size:0.9rem;
+    }
+    .empty-state .empty-icon { font-size:2.5rem; margin-bottom:0.5rem; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position:fixed; inset:0; z-index:200;
+      background:rgba(0,0,0,0.55);
+      display:none; align-items:center; justify-content:center;
+      padding:1rem;
+    }
+    .modal-overlay.open { display:flex; }
+    .modal {
+      background:#fff; border-radius:1.25rem;
+      width:100%; max-width:540px;
+      max-height:92svh; overflow-y:auto;
+      box-shadow:0 24px 64px rgba(0,0,0,0.25);
+    }
+    .modal-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:1.25rem 1.5rem 0;
+      position:sticky; top:0; background:#fff; z-index:1;
+      border-bottom:1px solid var(--border); padding-bottom:0.9rem;
+    }
+    .modal-title { font-size:1.05rem; font-weight:900; color:var(--brew); }
+    .modal-close {
+      width:2rem; height:2rem; border-radius:9999px;
+      background:#f3f4f6; border:none; cursor:pointer;
+      display:flex; align-items:center; justify-content:center;
+      font-size:1.1rem; color:var(--muted);
+      transition:background 0.15s;
+    }
+    .modal-close:hover { background:#e5e7eb; }
+    .modal-body { padding:1.25rem 1.5rem 1.5rem; }
+    .modal-footer {
+      position:sticky; bottom:0; background:#fff;
+      padding:0.9rem 1.5rem; border-top:1px solid var(--border);
+      display:flex; gap:0.75rem; justify-content:flex-end;
+    }
+
+    /* Form inside modal */
+    .field { margin-bottom:1.1rem; }
+    .field label { display:block; font-size:0.78rem; font-weight:700; color:#57534e; margin-bottom:0.4rem; }
+    .field input, .field select, .field textarea {
+      width:100%; border:2px solid var(--border); border-radius:0.6rem;
+      padding:0.65rem 0.85rem; font-size:0.875rem; outline:none;
+      background:#fff; color:var(--text); font-family:inherit;
+      transition:border-color 0.2s, box-shadow 0.2s;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus {
+      border-color:var(--amber); box-shadow:0 0 0 3px rgba(245,158,11,0.15);
+    }
+    .field textarea { resize:none; }
+    .field .hint { font-size:0.68rem; color:#a8a29e; margin-top:0.3rem; }
+    .field-row { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    .toggle-avail {
+      display:flex; align-items:center; gap:0.75rem;
+      padding:0.7rem 0.9rem; background:#f9fafb; border-radius:0.6rem;
+      border:2px solid var(--border); cursor:pointer;
+    }
+    .toggle-avail input[type=checkbox] { width:1.1rem; height:1.1rem; accent-color:var(--amber); cursor:pointer; }
+    .toggle-avail-label { font-size:0.85rem; font-weight:600; color:var(--text); cursor:pointer; }
+
+    .btn-save {
+      background:var(--brew); color:#fef3c7;
+      font-weight:700; font-size:0.875rem;
+      padding:0.7rem 1.5rem; border:none; border-radius:0.65rem;
+      cursor:pointer; transition:background 0.2s;
+    }
+    .btn-save:hover { background:#6B3A2A; }
+    .btn-cancel {
+      background:#fff; color:var(--muted);
+      font-weight:600; font-size:0.875rem;
+      padding:0.7rem 1.25rem; border:2px solid var(--border); border-radius:0.65rem;
+      cursor:pointer; transition:background 0.2s;
+    }
+    .btn-cancel:hover { background:var(--bg); }
+
+    /* ── Settings panel ── */
+    .settings-wrap { max-width:480px; }
+    .settings-card { background:#fff; border:1.5px solid var(--border); border-radius:1rem; padding:1.5rem; margin-bottom:1rem; }
+    .settings-card h3 { font-size:0.95rem; font-weight:800; color:var(--brew); margin-bottom:1rem; }
+    .toast {
+      display:none; position:fixed; bottom:1.5rem; right:1.5rem; z-index:300;
+      background:#1c1917; color:#fef3c7; font-size:0.85rem; font-weight:600;
+      padding:0.75rem 1.25rem; border-radius:0.75rem;
+      box-shadow:0 8px 24px rgba(0,0,0,0.25);
+    }
+    .toast.show { display:block; }
+
+    @media (max-width:640px) {
+      .field-row { grid-template-columns:1fr; }
+      .admin-tabs { overflow-x:auto; white-space:nowrap; }
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- ═══════════ LOGIN ═══════════ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">☕</div>
+    <div class="login-title">JAC's Admin Panel</div>
+    <div class="login-sub">Enter your password to manage the menu</div>
+    <label class="login-label" for="passInput">Password</label>
+    <input id="passInput" class="login-input" type="password" placeholder="Enter password" autocomplete="current-password">
+    <button class="login-btn" onclick="attemptLogin()">Log In</button>
+    <div id="loginErr" class="login-err">Incorrect password. Try again.</div>
+    <p class="login-hint">Default password: <strong>jacs2024</strong></p>
+  </div>
+</div>
+
+<!-- ═══════════ APP ═══════════ -->
+<div id="app">
+
+  <header class="admin-header">
+    <div class="admin-header-logo">☕ JAC's <span>Admin</span></div>
+    <div class="admin-header-right">
+      <button class="header-btn btn-site" onclick="window.open('../index.html','_blank')">View Site</button>
+      <button class="header-btn btn-logout" onclick="logout()">Log Out</button>
+    </div>
+  </header>
+
+  <div class="admin-tabs">
+    <button class="admin-tab active" data-panel="items">Menu Items</button>
+    <button class="admin-tab" data-panel="settings">Settings</button>
+  </div>
+
+  <!-- Items panel -->
+  <div id="panel-items" class="tab-panel active">
+    <div class="stats-row" id="statsRow"></div>
+
+    <div class="toolbar">
+      <input class="toolbar-search" type="search" id="searchInput" placeholder="Search items…">
+      <select class="toolbar-select" id="catFilter">
+        <option value="">All Categories</option>
+        <option value="drinks">Drinks</option>
+        <option value="food">Food</option>
+        <option value="pizza">Pizza</option>
+      </select>
+      <select class="toolbar-select" id="availFilter">
+        <option value="">All Status</option>
+        <option value="1">Available</option>
+        <option value="0">Unavailable</option>
+      </select>
+      <button class="btn-add" onclick="openModal()">+ Add Item</button>
+      <button class="btn-reset" onclick="confirmReset()">Reset to Default</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Item Name</th>
+            <th>Category</th>
+            <th>Subcategory</th>
+            <th>Price Display</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="itemsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Settings panel -->
+  <div id="panel-settings" class="tab-panel">
+    <div class="settings-wrap">
+      <div class="settings-card">
+        <h3>🔑 Change Password</h3>
+        <div class="field">
+          <label>Current Password</label>
+          <input type="password" id="curPass" placeholder="Current password">
+        </div>
+        <div class="field">
+          <label>New Password</label>
+          <input type="password" id="newPass" placeholder="New password (min 6 chars)">
+        </div>
+        <div class="field">
+          <label>Confirm New Password</label>
+          <input type="password" id="confPass" placeholder="Repeat new password">
+        </div>
+        <button class="btn-save" onclick="changePassword()" style="width:100%">Update Password</button>
+      </div>
+
+      <div class="settings-card">
+        <h3>ℹ️ About</h3>
+        <p style="font-size:0.82rem;color:#78716c;line-height:1.6;">
+          Menu data is stored in your browser's localStorage. Changes here update the public site immediately — just refresh the main page.<br><br>
+          To back up your menu, copy the browser localStorage value for key <code style="background:#f3f4f6;padding:1px 5px;border-radius:3px;">jacs_menu_v1</code>.
+        </p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+
+<!-- ═══════════ MODAL ═══════════ -->
+<div id="modalOverlay" class="modal-overlay" onclick="closeOnBackdrop(event)">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">Add Menu Item</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editId">
+
+      <div class="field">
+        <label>Item Name *</label>
+        <input type="text" id="fName" placeholder="e.g. Biscoff Latte">
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Category *</label>
+          <select id="fCategory" onchange="updateSubOptions()">
+            <option value="">Select…</option>
+            <option value="drinks">Drinks</option>
+            <option value="food">Food</option>
+            <option value="pizza">Pizza</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Subcategory *</label>
+          <input type="text" id="fSub" placeholder="e.g. Iced Coffee" list="subList">
+          <datalist id="subList"></datalist>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Price Display *</label>
+        <input type="text" id="fPrice" placeholder="e.g. 12oz ₱39 · 16oz ₱45 · 22oz ₱59">
+        <p class="hint">Type exactly how you want it shown on the menu. Use · to separate sizes.</p>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Starting / Lowest Price</label>
+          <input type="number" id="fFrom" placeholder="39" min="0">
+          <p class="hint">Used for sorting only.</p>
+        </div>
+        <div class="field">
+          <label>Image URL <span style="font-weight:400;color:#a8a29e;">(optional)</span></label>
+          <input type="url" id="fImage" placeholder="https://…">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Description <span style="font-weight:400;color:#a8a29e;">(optional)</span></label>
+        <textarea id="fDesc" rows="2" placeholder="e.g. Add ons: Egg +₱15, Cheese +₱10"></textarea>
+      </div>
+
+      <div class="field">
+        <label class="toggle-avail" for="fAvail">
+          <input type="checkbox" id="fAvail" checked>
+          <span class="toggle-avail-label">Available (visible on menu)</span>
+        </label>
+      </div>
+
+      <div class="field">
+        <label class="toggle-avail" for="fFeatured">
+          <input type="checkbox" id="fFeatured">
+          <span class="toggle-avail-label">Featured item</span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveItem()">Save Item</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<script src="../js/data.js"></script>
+<script>
+// ── Auth ──────────────────────────────────────────────────────────────────
+function attemptLogin() {
+  const val = document.getElementById('passInput').value;
+  if (checkAdminPass(val)) {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    initApp();
+  } else {
+    document.getElementById('loginErr').classList.add('show');
+    document.getElementById('passInput').value = '';
+  }
+}
+document.getElementById('passInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') attemptLogin();
+});
+
+function logout() {
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('passInput').value = '';
+}
+
+// ── Tab navigation ────────────────────────────────────────────────────────
+document.querySelectorAll('.admin-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.panel).classList.add('active');
+  });
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────
+function initApp() {
+  renderStats();
+  renderTable();
+  document.getElementById('searchInput').addEventListener('input', renderTable);
+  document.getElementById('catFilter').addEventListener('change', renderTable);
+  document.getElementById('availFilter').addEventListener('change', renderTable);
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────
+function renderStats() {
+  const items = getMenuData();
+  const avail = items.filter(i => i.available).length;
+  const cats  = { drinks: items.filter(i=>i.category==='drinks').length,
+                  food:   items.filter(i=>i.category==='food').length,
+                  pizza:  items.filter(i=>i.category==='pizza').length };
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${items.length}</div><div class="stat-lbl">Total Items</div></div>
+    <div class="stat-card"><div class="stat-num">${avail}</div><div class="stat-lbl">Available</div></div>
+    <div class="stat-card"><div class="stat-num">${cats.drinks}</div><div class="stat-lbl">Drink Items</div></div>
+    <div class="stat-card"><div class="stat-num">${cats.food}</div><div class="stat-lbl">Food Items</div></div>
+    <div class="stat-card"><div class="stat-num">${cats.pizza}</div><div class="stat-lbl">Pizza Items</div></div>`;
+}
+
+// ── Table ─────────────────────────────────────────────────────────────────
+function renderTable() {
+  const q        = document.getElementById('searchInput').value.toLowerCase();
+  const catF     = document.getElementById('catFilter').value;
+  const availF   = document.getElementById('availFilter').value;
+  let items      = getMenuData();
+
+  if (q)      items = items.filter(i => i.name.toLowerCase().includes(q) || i.sub.toLowerCase().includes(q));
+  if (catF)   items = items.filter(i => i.category === catF);
+  if (availF !== '') items = items.filter(i => i.available === (availF === '1'));
+
+  const tbody = document.getElementById('itemsBody');
+
+  if (!items.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🔍</div>No items found.</div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = items.map((item, idx) => `
+    <tr>
+      <td style="color:#a8a29e;font-size:0.75rem;">${idx+1}</td>
+      <td>
+        <div class="col-name">${esc(item.name)}</div>
+        ${item.desc ? `<div class="col-sub" style="margin-top:2px;">${esc(item.desc)}</div>` : ''}
+      </td>
+      <td><span class="badge badge-${item.category}">${item.category}</span></td>
+      <td class="col-sub">${esc(item.sub)}</td>
+      <td class="col-price">${esc(item.price)}</td>
+      <td>
+        <button class="toggle-btn ${item.available ? 'toggle-on' : 'toggle-off'}"
+          onclick="toggleAvail('${item.id}')">
+          ${item.available ? '✓ On' : '✗ Off'}
+        </button>
+      </td>
+      <td>
+        <div class="action-cell">
+          <button class="btn-edit" onclick="openModal('${item.id}')">Edit</button>
+          <button class="btn-del" onclick="deleteItem('${item.id}')">Delete</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Toggle availability ───────────────────────────────────────────────────
+function toggleAvail(id) {
+  const items = getMenuData();
+  const item  = items.find(i => i.id === id);
+  if (!item) return;
+  item.available = !item.available;
+  saveMenuData(items);
+  renderStats();
+  renderTable();
+  showToast(item.available ? `"${item.name}" is now available ✓` : `"${item.name}" hidden from menu`);
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────
+function deleteItem(id) {
+  const items = getMenuData();
+  const item  = items.find(i => i.id === id);
+  if (!item) return;
+  if (!confirm(`Delete "${item.name}"? This cannot be undone.`)) return;
+  saveMenuData(items.filter(i => i.id !== id));
+  renderStats();
+  renderTable();
+  showToast(`"${item.name}" deleted.`);
+}
+
+// ── Reset ─────────────────────────────────────────────────────────────────
+function confirmReset() {
+  if (!confirm('Reset ALL menu items to default? Your current changes will be lost.')) return;
+  resetMenuData();
+  renderStats();
+  renderTable();
+  showToast('Menu reset to default.');
+}
+
+// ── Modal open/close ──────────────────────────────────────────────────────
+const SUB_OPTIONS = {
+  drinks: ['Iced Coffee','Premium Series','Milkshake','Milk Series','Float Series','Milktea','Honey Lime','Soda'],
+  food:   ['Burgers','Sandwiches','Combo Meals','Pika Bites','Waffle Craze','Graham Float','Noodles & More','Nachos'],
+  pizza:  ['Pizza'],
+};
+
+function updateSubOptions() {
+  const cat  = document.getElementById('fCategory').value;
+  const dl   = document.getElementById('subList');
+  dl.innerHTML = (SUB_OPTIONS[cat] || []).map(s => `<option value="${s}">`).join('');
+}
+
+function openModal(id) {
+  const items = getMenuData();
+  const item  = id ? items.find(i => i.id === id) : null;
+
+  document.getElementById('modalTitle').textContent = item ? 'Edit Menu Item' : 'Add Menu Item';
+  document.getElementById('editId').value    = item ? item.id : '';
+  document.getElementById('fName').value     = item ? item.name  : '';
+  document.getElementById('fCategory').value = item ? item.category : '';
+  updateSubOptions();
+  document.getElementById('fSub').value      = item ? item.sub   : '';
+  document.getElementById('fPrice').value    = item ? item.price : '';
+  document.getElementById('fFrom').value     = item ? (item.from || '') : '';
+  document.getElementById('fImage').value    = item ? (item.imageUrl || '') : '';
+  document.getElementById('fDesc').value     = item ? (item.desc || '') : '';
+  document.getElementById('fAvail').checked  = item ? item.available : true;
+  document.getElementById('fFeatured').checked = item ? (item.featured || false) : false;
+
+  document.getElementById('modalOverlay').classList.add('open');
+  document.getElementById('fName').focus();
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+function closeOnBackdrop(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+}
+
+// ── Save item ─────────────────────────────────────────────────────────────
+function saveItem() {
+  const name  = document.getElementById('fName').value.trim();
+  const cat   = document.getElementById('fCategory').value;
+  const sub   = document.getElementById('fSub').value.trim();
+  const price = document.getElementById('fPrice').value.trim();
+
+  if (!name || !cat || !sub || !price) {
+    alert('Please fill in: Name, Category, Subcategory, and Price Display.');
+    return;
+  }
+
+  const items  = getMenuData();
+  const editId = document.getElementById('editId').value;
+
+  const record = {
+    id:       editId || generateId(),
+    name,
+    category: cat,
+    sub,
+    price,
+    from:     parseFloat(document.getElementById('fFrom').value) || 0,
+    desc:     document.getElementById('fDesc').value.trim(),
+    imageUrl: document.getElementById('fImage').value.trim(),
+    available:document.getElementById('fAvail').checked,
+    featured: document.getElementById('fFeatured').checked,
+  };
+
+  if (editId) {
+    const idx = items.findIndex(i => i.id === editId);
+    if (idx !== -1) items[idx] = record; else items.push(record);
+  } else {
+    items.push(record);
+  }
+
+  saveMenuData(items);
+  closeModal();
+  renderStats();
+  renderTable();
+  showToast(editId ? `"${name}" updated ✓` : `"${name}" added to menu ✓`);
+}
+
+// ── Change password ───────────────────────────────────────────────────────
+function changePassword() {
+  const cur   = document.getElementById('curPass').value;
+  const neo   = document.getElementById('newPass').value;
+  const conf  = document.getElementById('confPass').value;
+
+  if (!checkAdminPass(cur)) { alert('Current password is wrong.'); return; }
+  if (neo.length < 6)       { alert('New password must be at least 6 characters.'); return; }
+  if (neo !== conf)         { alert('Passwords do not match.'); return; }
+
+  setAdminPass(neo);
+  document.getElementById('curPass').value  = '';
+  document.getElementById('newPass').value  = '';
+  document.getElementById('confPass').value = '';
+  showToast('Password changed successfully ✓');
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>

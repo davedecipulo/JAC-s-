@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JAC's Snack Haven — Coffee, Drinks & Snacks</title>
+  <meta name="description" content="JAC's Snack Haven — Your cozy corner for coffee, cold drinks, pizza, and all-day snacks." />
+  <link rel="stylesheet" href="css/styles.css" />
+  <script>(function(){var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);})();</script>
+</head>
+
+<body>
+
+<!-- ═══════════════════════════ NAVBAR ════════════════════════════ -->
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="#home" class="nav-logo">☕ JAC's <span>Snack Haven</span></a>
+
+    <ul class="nav-links">
+      <li><a href="#home">Home</a></li>
+      <li><a href="#about">About</a></li>
+      <li><a href="#menu">Menu</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+
+    <a href="#menu" class="nav-cta">View Menu</a>
+
+    <button id="darkToggle" class="dark-toggle" aria-label="Switch to dark mode" title="Toggle dark mode">🌙</button>
+
+    <button id="hamburger" class="hamburger" aria-label="Open menu">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <line x1="3" y1="6"  x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
+  </div>
+
+  <div id="mobileMenu">
+    <a href="#home">Home</a>
+    <a href="#about">About</a>
+    <a href="#menu">Menu</a>
+    <a href="#contact">Contact</a>
+  </div>
+</nav>
+
+
+<!-- ═══════════════════════════ HERO ══════════════════════════════ -->
+<section id="home" class="hero">
+  <div class="hero-blob-1"></div>
+  <div class="hero-blob-2"></div>
+
+  <div class="hero-content">
+    <p class="hero-eyebrow fade-up">Welcome to Your Cozy Corner</p>
+
+    <h1 class="hero-title fade-up delay-1">
+      JAC's<br><em>Snack</em> Haven
+    </h1>
+
+    <p class="hero-sub fade-up delay-2">
+      Great coffee, cold drinks, freshly baked pizza, and irresistible snacks —
+      made for students, workers, and everyone in between.
+    </p>
+
+    <div class="hero-btns fade-up delay-3">
+      <a href="#menu"  class="btn-primary">Explore Our Menu</a>
+      <a href="#about" class="btn-outline">Our Story</a>
+    </div>
+
+    <div class="hero-stats fade-up delay-4">
+      <div class="hero-stat">
+        <div class="hero-stat-num">90+</div>
+        <div class="hero-stat-lbl">Menu Items</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-num">5★</div>
+        <div class="hero-stat-lbl">Community Rating</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-num">Daily</div>
+        <div class="hero-stat-lbl">Fresh Brews</div>
+      </div>
+    </div>
+  </div>
+
+  <a href="#about" class="scroll-hint" aria-label="Scroll down">
+    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  </a>
+</section>
+
+
+<!-- ═══════════════════════════ ABOUT ═════════════════════════════ -->
+<section id="about" class="section">
+  <div class="section-inner">
+    <div class="about-grid">
+
+      <div class="about-collage">
+        <img src="https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=400&h=320&fit=crop"
+             alt="Cozy cafe interior" class="collage-img-1">
+        <img src="https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&h=360&fit=crop"
+             alt="Barista pouring coffee" class="collage-img-2">
+        <img src="https://images.unsplash.com/photo-1481833761820-0509d3217039?w=400&h=260&fit=crop"
+             alt="Coffee and drinks" class="collage-img-3">
+        <img src="https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400&h=260&fit=crop"
+             alt="Fresh pastries" class="collage-img-4">
+        <div class="about-badge">
+          <div class="about-badge-small">Est.</div>
+          <div class="about-badge-year">2020</div>
+        </div>
+      </div>
+
+      <div class="about-body">
+        <p class="section-eyebrow">Our Story</p>
+        <h2 class="section-title">More Than<br>Just a Café</h2>
+        <p>JAC's Snack Haven was born from a simple belief: everyone deserves a space that feels like home — where the coffee is always fresh, the drinks are ice-cold, and the atmosphere is always right.</p>
+        <p>Whether you're catching up with friends, grinding through a study session, or stealing a quiet moment, we've got your corner covered. Every cup brewed with care, every bite made to delight.</p>
+        <div class="pills">
+          <span class="pill">☕ Freshly Brewed Daily</span>
+          <span class="pill">🧋 50+ Drink Flavors</span>
+          <span class="pill">🍕 Freshly Baked Pizza</span>
+          <span class="pill">📶 Free WiFi</span>
+          <span class="pill">🛋️ Cozy Seating</span>
+          <span class="pill">🔌 Power Outlets</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════ MENU ══════════════════════════════ -->
+<section id="menu" class="section">
+  <div class="section-inner">
+    <div style="text-align:center; margin-bottom:2rem;">
+      <p class="section-eyebrow">What We Serve</p>
+      <h2 class="section-title" style="margin-bottom:0.5rem;">Our Full Menu</h2>
+      <p class="section-sub" style="margin:0 auto;">From morning brews to midnight snacks — something delicious for every craving.</p>
+    </div>
+
+    <div class="menu-tabs">
+      <button class="tab-btn active" data-cat="all">All Items</button>
+      <button class="tab-btn" data-cat="drinks">🧋 Drinks</button>
+      <button class="tab-btn" data-cat="food">🍔 Food</button>
+      <button class="tab-btn" data-cat="pizza">🍕 Pizza</button>
+    </div>
+
+    <div id="menuContent"></div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════ CONTACT ═══════════════════════════ -->
+<section id="contact" class="section">
+  <div class="section-inner">
+    <div style="text-align:center; margin-bottom:2.5rem;">
+      <p class="section-eyebrow">Come Say Hi</p>
+      <h2 class="section-title" style="margin-bottom:0.5rem;">Find Us & Reach Out</h2>
+      <p class="section-sub" style="margin:0 auto;">Have a question or suggestion? We'd love to hear from you.</p>
+    </div>
+
+    <div class="contact-grid">
+
+      <!-- Form -->
+      <div class="contact-form-wrap">
+        <h3 style="font-size:1.05rem;font-weight:800;margin-bottom:1.5rem;">Send Us a Message</h3>
+        <form id="contactForm" novalidate>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Your Name</label>
+              <input class="form-input" type="text" required placeholder="Juan dela Cruz">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email Address</label>
+              <input class="form-input" type="email" required placeholder="juan@email.com">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Subject</label>
+            <input class="form-input" type="text" placeholder="What's on your mind?">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Message</label>
+            <textarea class="form-input" rows="5" required placeholder="Tell us anything…" style="resize:none;"></textarea>
+          </div>
+          <button type="submit" class="btn-submit">Send Message ✉️</button>
+        </form>
+        <div id="successMsg" class="success-msg">✅ Message sent! We'll get back to you soon.</div>
+      </div>
+
+      <!-- Hours -->
+      <div class="hours-card">
+        <h3>🕐 Business Hours</h3>
+        <div class="hours-row"><span>Monday – Friday</span><span>7:00 AM – 9:00 PM</span></div>
+        <div class="hours-row"><span>Saturday</span><span>8:00 AM – 10:00 PM</span></div>
+        <div class="hours-row"><span>Sunday</span><span>9:00 AM – 8:00 PM</span></div>
+        <div id="openStatus" class="open-badge"></div>
+      </div>
+
+      <!-- Location -->
+      <div class="location-card">
+        <h3>📍 Visit Us</h3>
+        <div class="loc-row"><span class="loc-icon">📌</span><span>123 Hazel Street, Brgy. Mabini<br>Your Town, Philippines</span></div>
+        <div class="loc-row"><span class="loc-icon">📞</span><span>+63 912 345 6789</span></div>
+        <div class="loc-row"><span class="loc-icon">📧</span><span>hello@jacssnackhaven.com</span></div>
+        <div class="social-row">
+          <a href="#" class="social-btn social-fb">Facebook</a>
+          <a href="#" class="social-btn social-ig">Instagram</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════ FOOTER ════════════════════════════ -->
+<footer class="footer">
+  <div class="footer-logo">☕ JAC's <span>Snack Haven</span></div>
+  <p class="footer-tagline">Your cozy corner for coffee, snacks, and good vibes.</p>
+  <ul class="footer-links">
+    <li><a href="#home">Home</a></li>
+    <li><a href="#about">About</a></li>
+    <li><a href="#menu">Menu</a></li>
+    <li><a href="#contact">Contact</a></li>
+    <li><a href="admin/index.html">Admin</a></li>
+  </ul>
+  <p class="footer-copy">© 2026 JAC's Snack Haven. All rights reserved.</p>
+</footer>
+
+
+<script src="js/data.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
