@@ -242,6 +242,25 @@ async function uploadProductImage(file, itemId) {
   return data.publicUrl;
 }
 
+// ── Delivery fee ──────────────────────────────────────────────────────────────
+async function getDeliveryFee() {
+  if (!SUPABASE_CONFIGURED || !supabaseClient) return 50;
+  try {
+    const { data, error } = await supabaseClient
+      .from('admin_config').select('value').eq('key', 'delivery_fee').single();
+    if (error || !data) return 50;
+    return parseFloat(data.value) || 50;
+  } catch { return 50; }
+}
+
+async function setDeliveryFee(fee) {
+  if (!SUPABASE_CONFIGURED || !supabaseClient) return;
+  const { error } = await supabaseClient
+    .from('admin_config')
+    .upsert({ key: 'delivery_fee', value: String(fee) }, { onConflict: 'key' });
+  if (error) throw error;
+}
+
 // ── Announcement ─────────────────────────────────────────────────────────────
 async function getAnnouncement() {
   if (!SUPABASE_CONFIGURED || !supabaseClient) return null;
@@ -358,15 +377,17 @@ const ORDERS_LS_KEY = 'jacs_orders';
 
 async function createOrder(order) {
   const record = {
-    id:             order.id,
-    customer_name:  order.customerName,
-    customer_phone: order.customerPhone,
-    order_type:     order.orderType,
-    notes:          order.notes || '',
-    items:          order.items,
-    status:         'pending',
-    created_at:     new Date().toISOString(),
-    updated_at:     new Date().toISOString(),
+    id:               order.id,
+    customer_name:    order.customerName,
+    customer_phone:   order.customerPhone,
+    order_type:       order.orderType,
+    notes:            order.notes || '',
+    items:            order.items,
+    status:           'pending',
+    delivery_address: order.deliveryAddress || '',
+    delivery_fee:     order.deliveryFee     || 0,
+    created_at:       new Date().toISOString(),
+    updated_at:       new Date().toISOString(),
   };
   if (!SUPABASE_CONFIGURED || !supabaseClient) {
     const orders = _getLocalOrders();

@@ -272,6 +272,29 @@ function closeLightbox() {
   }
 })();
 
+/* ── Delivery fee (loaded from admin_config) ─────────────────────────────── */
+let _deliveryFee = 50;
+(async function () {
+  _deliveryFee = await getDeliveryFee();
+  // refresh UI if delivery is already selected (e.g. back-nav)
+  const ot = document.getElementById('orderType');
+  if (ot && ot.value === 'delivery') {
+    document.getElementById('cartDeliveryFee').textContent = '₱' + _deliveryFee.toFixed(0);
+    _updateCartUI();
+  }
+})();
+
+function onOrderTypeChange() {
+  const isDelivery = document.getElementById('orderType')?.value === 'delivery';
+  const addrField  = document.getElementById('deliveryAddress');
+  const feeRow     = document.getElementById('cartDeliveryFeeRow');
+  const feeEl      = document.getElementById('cartDeliveryFee');
+  if (addrField) addrField.style.display = isDelivery ? 'block' : 'none';
+  if (feeRow)    feeRow.style.display    = isDelivery ? 'flex'  : 'none';
+  if (isDelivery && feeEl) feeEl.textContent = '₱' + _deliveryFee.toFixed(0);
+  _updateCartUI();
+}
+
 /* ── Cart state ──────────────────────────────────────────────────────────── */
 let _cart = [];
 
@@ -411,19 +434,31 @@ async function placeOrder() {
   if (!phone) { document.getElementById('orderPhone').focus(); return; }
   if (_cart.length === 0) return;
 
+  const orderType      = document.getElementById('orderType')?.value || 'dine-in';
+  const isDelivery     = orderType === 'delivery';
+  const deliveryAddress = isDelivery
+    ? (document.getElementById('deliveryAddress')?.value || '').trim()
+    : '';
+  if (isDelivery && !deliveryAddress) {
+    document.getElementById('deliveryAddress').focus();
+    return;
+  }
+
   const btn = document.getElementById('btnPlaceOrder');
   if (btn) { btn.disabled = true; btn.textContent = 'Placing order…'; }
 
   const order = {
-    id:            generateId(),
-    customerName:  name,
-    customerPhone: phone,
-    orderType:     document.getElementById('orderType')?.value || 'dine-in',
-    notes:         (document.getElementById('orderNotes')?.value || '').trim(),
-    items:         _cart.map(c => ({
+    id:              generateId(),
+    customerName:    name,
+    customerPhone:   phone,
+    orderType,
+    notes:           (document.getElementById('orderNotes')?.value || '').trim(),
+    items:           _cart.map(c => ({
       itemId: c.itemId, name: c.name, variant: c.variant, price: c.price, qty: c.qty,
     })),
-    status: 'pending',
+    status:          'pending',
+    deliveryAddress,
+    deliveryFee:     isDelivery ? _deliveryFee : 0,
   };
 
   try {
@@ -432,6 +467,8 @@ async function placeOrder() {
     document.getElementById('orderName').value  = '';
     document.getElementById('orderPhone').value = '';
     document.getElementById('orderNotes').value = '';
+    const addrEl = document.getElementById('deliveryAddress');
+    if (addrEl) addrEl.value = '';
     _saveLastOrder(order);
     showOrderTracker(order);
   } catch (err) {
@@ -513,27 +550,34 @@ function showOrderTracker(order) {
 }
 
 function _renderTrackerContent(order) {
-  const status    = order.status || 'pending';
-  const name      = order.customerName || order.customer_name || '';
-  const orderType = order.orderType    || order.order_type    || 'dine-in';
-  const items     = Array.isArray(order.items) ? order.items : [];
-  const ref       = (order.id || '').slice(-8).toUpperCase();
+  const status          = order.status || 'pending';
+  const name            = order.customerName    || order.customer_name    || '';
+  const orderType       = order.orderType       || order.order_type       || 'dine-in';
+  const deliveryAddress = order.deliveryAddress || order.delivery_address || '';
+  const deliveryFee     = parseFloat(order.deliveryFee ?? order.delivery_fee ?? 0);
+  const items           = Array.isArray(order.items) ? order.items : [];
+  const ref             = (order.id || '').slice(-8).toUpperCase();
 
   const refEl = document.getElementById('trackerRef');
   if (refEl) refEl.textContent = `Ref #${ref}`;
+
+  const typeBadge = orderType === 'delivery'
+    ? `🛵 Delivery`
+    : orderType === 'takeout' ? '📦 Takeout' : '🍽 Dine In';
 
   const metaEl = document.getElementById('trackerMeta');
   if (metaEl) metaEl.innerHTML = `
     <strong>${escHtml(name)}</strong>
     &nbsp;·&nbsp;
-    <span class="tracker-type-badge">${orderType === 'takeout' ? '📦 Takeout' : '🍽 Dine In'}</span>
+    <span class="tracker-type-badge">${typeBadge}</span>
+    ${deliveryAddress ? `<div style="font-size:0.75rem;color:#78716c;margin-top:3px;">📍 ${escHtml(deliveryAddress)}</div>` : ''}
   `;
 
   _updateTrackerSteps(status);
 
   const listEl = document.getElementById('trackerItemsList');
   if (listEl) {
-    listEl.innerHTML = items.map(i => {
+    let rows = items.map(i => {
       const p = parseFloat(i.price || 0);
       const q = parseInt(i.qty   || 1, 10);
       return `<div class="tracker-item-row">
@@ -541,11 +585,20 @@ function _renderTrackerContent(order) {
         <span class="tracker-item-price">₱${(p * q).toFixed(0)}</span>
       </div>`;
     }).join('');
+
+    if (deliveryFee > 0) {
+      rows += `<div class="tracker-item-row" style="border-top:1px dashed #e5e7eb;margin-top:4px;padding-top:4px;color:#78716c;">
+        <span>🛵 Delivery Fee</span>
+        <span class="tracker-item-price">₱${deliveryFee.toFixed(0)}</span>
+      </div>`;
+    }
+    listEl.innerHTML = rows;
   }
 
-  const total    = items.reduce((s, i) => s + parseFloat(i.price || 0) * parseInt(i.qty || 1, 10), 0);
-  const totalEl  = document.getElementById('trackerTotal');
-  if (totalEl) totalEl.textContent = '₱' + total.toFixed(0);
+  const itemsTotal = items.reduce((s, i) => s + parseFloat(i.price || 0) * parseInt(i.qty || 1, 10), 0);
+  const grandTotal = itemsTotal + deliveryFee;
+  const totalEl    = document.getElementById('trackerTotal');
+  if (totalEl) totalEl.textContent = '₱' + grandTotal.toFixed(0);
 }
 
 function _updateTrackerSteps(status) {
@@ -664,8 +717,11 @@ if (_activeOrder) _subscribeToOrder(_activeOrder.id);
 function _updateCartUI() {
   // Don't touch UI if tracker is showing
   if (document.getElementById('orderTracker')?.style.display !== 'none') return;
-  const count = _cart.reduce((s, c) => s + c.qty, 0);
-  const total = _cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const count      = _cart.reduce((s, c) => s + c.qty, 0);
+  const itemsTotal = _cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const isDelivery = document.getElementById('orderType')?.value === 'delivery';
+  const fee        = isDelivery ? _deliveryFee : 0;
+  const total      = itemsTotal + fee;
   const badge = document.getElementById('cartBadge');
   if (badge) { badge.textContent = count; badge.style.display = count > 0 ? 'flex' : 'none'; }
 

@@ -278,6 +278,10 @@
   </div>
 
   <div id="cartFooter" class="cart-footer" style="display:none">
+    <div id="cartDeliveryFeeRow" class="cart-delivery-fee" style="display:none;">
+      <span>Delivery Fee</span>
+      <span id="cartDeliveryFee">₱0</span>
+    </div>
     <div class="cart-total">
       <span>Estimated Total</span>
       <span id="cartTotal">₱0</span>
@@ -285,10 +289,13 @@
     <div class="order-form">
       <input class="form-input" id="orderName"  type="text"  placeholder="Your name *" autocomplete="name">
       <input class="form-input" id="orderPhone" type="tel"   placeholder="Phone number *" autocomplete="tel">
-      <select class="form-input" id="orderType">
+      <select class="form-input" id="orderType" onchange="onOrderTypeChange()">
         <option value="dine-in">Dine In</option>
         <option value="takeout">Takeout / Pickup</option>
+        <option value="delivery">🛵 Delivery</option>
       </select>
+      <input class="form-input" id="deliveryAddress" type="text"
+        placeholder="Delivery address *" style="display:none;">
       <textarea class="form-input" id="orderNotes" rows="2"
         placeholder="Special instructions (optional)" style="resize:none;"></textarea>
     </div>
