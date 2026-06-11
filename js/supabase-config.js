@@ -5,8 +5,8 @@
 // 4. Run supabase-setup.sql in your project's SQL Editor
 // 5. Go to Storage → create a public bucket named: product-images
 
-const SUPABASE_URL      = 'YOUR_SUPABASE_PROJECT_URL';
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_URL      = 'https://nlyxewweieqxlqzwmlnf.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_jYfgW5qlMKAMUXJOD_GauQ_pmQMBbP0';
 const IMAGE_BUCKET        = 'product-images';
 const SHOP_PHOTOS_BUCKET  = 'shop-photos';
 

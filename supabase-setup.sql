@@ -24,11 +24,13 @@ CREATE TABLE IF NOT EXISTS public.menu_items (
 ALTER TABLE public.menu_items ENABLE ROW LEVEL SECURITY;
 
 -- 3. Allow public read (home page can display menu)
+DROP POLICY IF EXISTS "Allow public read" ON public.menu_items;
 CREATE POLICY "Allow public read" ON public.menu_items
   FOR SELECT USING (TRUE);
 
 -- 4. Allow all operations via anon key
 --    (admin uses client-side password protection)
+DROP POLICY IF EXISTS "Allow all write operations" ON public.menu_items;
 CREATE POLICY "Allow all write operations" ON public.menu_items
   FOR ALL USING (TRUE) WITH CHECK (TRUE);
 
@@ -46,7 +48,9 @@ CREATE TABLE IF NOT EXISTS public.shop_photos (
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE public.shop_photos ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read photos" ON public.shop_photos;
 CREATE POLICY "Allow public read photos"  ON public.shop_photos FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS "Allow all write photos" ON public.shop_photos;
 CREATE POLICY "Allow all write photos"    ON public.shop_photos FOR ALL USING (TRUE) WITH CHECK (TRUE);
 
 -- 7. Orders table
@@ -62,13 +66,39 @@ CREATE TABLE IF NOT EXISTS public.orders (
   updated_at     TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public create orders" ON public.orders;
 CREATE POLICY "Allow public create orders" ON public.orders FOR INSERT WITH CHECK (TRUE);
+DROP POLICY IF EXISTS "Allow public read orders" ON public.orders;
 CREATE POLICY "Allow public read orders"   ON public.orders FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS "Allow update orders" ON public.orders;
 CREATE POLICY "Allow update orders"        ON public.orders FOR UPDATE USING (TRUE) WITH CHECK (TRUE);
+DROP POLICY IF EXISTS "Allow delete orders" ON public.orders;
 CREATE POLICY "Allow delete orders"        ON public.orders FOR DELETE USING (TRUE);
 
 CREATE INDEX IF NOT EXISTS idx_orders_status     ON public.orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON public.orders(created_at DESC);
+
+-- ══════════════════════════════════════════════════════════════
+-- 8. Admin config table (stores hashed admin password)
+CREATE TABLE IF NOT EXISTS public.admin_config (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+ALTER TABLE public.admin_config ENABLE ROW LEVEL SECURITY;
+-- Anyone can read (needed to verify login client-side)
+DROP POLICY IF EXISTS "Allow read admin_config" ON public.admin_config;
+CREATE POLICY "Allow read admin_config"   ON public.admin_config FOR SELECT USING (TRUE);
+-- Allow update so the admin can change their password
+DROP POLICY IF EXISTS "Allow update admin_config" ON public.admin_config;
+CREATE POLICY "Allow update admin_config" ON public.admin_config FOR UPDATE USING (TRUE) WITH CHECK (TRUE);
+DROP POLICY IF EXISTS "Allow insert admin_config" ON public.admin_config;
+CREATE POLICY "Allow insert admin_config" ON public.admin_config FOR INSERT WITH CHECK (TRUE);
+
+-- Insert default password hash (SHA-256 of 'jacs2024')
+-- Change this immediately after first login via the Settings → Change Password panel
+INSERT INTO public.admin_config (key, value)
+VALUES ('password_hash', 'be1a0c80d5cefe9b9ae6086bcf8ede8c7efaed1637065cf1091332460d49ada9')
+ON CONFLICT (key) DO NOTHING;
 
 -- ══════════════════════════════════════════════════════════════
 -- STORAGE SETUP (do this in the Supabase Dashboard UI):

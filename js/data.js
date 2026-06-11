@@ -242,13 +242,39 @@ async function uploadProductImage(file, itemId) {
   return data.publicUrl;
 }
 
-// ── Password helpers (localStorage — client-side only) ────────────────────────
-const PASS_KEY     = 'jacs_admin_pass';
-const DEFAULT_PASS = btoa('jacs2024');
+// ── Password helpers (Supabase-backed, SHA-256 hashed) ───────────────────────
+// Default hash = SHA-256('jacs2024'). Run admin-config-setup.sql once in Supabase.
+const DEFAULT_PASS_HASH = 'be1a0c80d5cefe9b9ae6086bcf8ede8c7efaed1637065cf1091332460d49ada9';
 
-function getAdminPass()        { return localStorage.getItem(PASS_KEY) || DEFAULT_PASS; }
-function setAdminPass(plain)   { localStorage.setItem(PASS_KEY, btoa(plain)); }
-function checkAdminPass(plain) { return btoa(plain) === getAdminPass(); }
+async function _sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function _getStoredHash() {
+  if (!SUPABASE_CONFIGURED || !supabaseClient) return DEFAULT_PASS_HASH;
+  try {
+    const { data, error } = await supabaseClient
+      .from('admin_config').select('value').eq('key', 'password_hash').single();
+    if (error || !data) return DEFAULT_PASS_HASH;
+    return data.value;
+  } catch { return DEFAULT_PASS_HASH; }
+}
+
+async function checkAdminPass(plain) {
+  const hash   = await _sha256(plain);
+  const stored = await _getStoredHash();
+  return hash === stored;
+}
+
+async function setAdminPass(plain) {
+  const hash = await _sha256(plain);
+  if (!SUPABASE_CONFIGURED || !supabaseClient) return;
+  const { error } = await supabaseClient
+    .from('admin_config')
+    .upsert({ key: 'password_hash', value: hash }, { onConflict: 'key' });
+  if (error) throw error;
+}
 
 function generateId() {
   return 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);

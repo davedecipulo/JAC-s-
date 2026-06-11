@@ -260,6 +260,9 @@
     <div style="font-size:2.5rem">🛒</div>
     <p style="font-weight:600;">Your order is empty</p>
     <p style="font-size:0.8rem;color:#a8a29e;">Tap <strong>+</strong> on any menu item to add it here.</p>
+    <button id="trackLastOrderBtn" class="track-last-btn" onclick="showTrackerView()" style="display:none;">
+      📋 Track my last order
+    </button>
   </div>
 
   <div id="cartFooter" class="cart-footer" style="display:none">
@@ -280,6 +283,34 @@
     <button class="btn-place-order" id="btnPlaceOrder" onclick="placeOrder()">
       Place Order 🎉
     </button>
+  </div>
+
+  <!-- Order tracker view (shown after placing order) -->
+  <div id="orderTracker" class="order-tracker" style="display:none">
+    <div class="tracker-header">
+      <div class="tracker-icon">🎉</div>
+      <div class="tracker-title">Order Placed!</div>
+      <div class="tracker-ref" id="trackerRef"></div>
+      <div class="tracker-meta" id="trackerMeta"></div>
+    </div>
+
+    <div class="tracker-steps" id="trackerSteps"></div>
+
+    <div>
+      <div class="tracker-items-title">Items in your order</div>
+      <div id="trackerItemsList"></div>
+      <div class="tracker-total">
+        <span>Total</span>
+        <span id="trackerTotal">₱0</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:0.5rem;">
+      <button class="tracker-refresh-btn" id="trackerRefreshBtn" onclick="refreshOrderStatus()">
+        ↺ Refresh Status
+      </button>
+      <button class="btn-new-order" onclick="startNewOrder()">+ Place New Order</button>
+    </div>
   </div>
 </div>
 

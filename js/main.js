@@ -302,46 +302,6 @@ function updateCartQty(cartId, delta) {
   _updateCartUI();
 }
 
-function _updateCartUI() {
-  const count = _cart.reduce((s, c) => s + c.qty, 0);
-  const total = _cart.reduce((s, c) => s + c.price * c.qty, 0);
-  const badge = document.getElementById('cartBadge');
-  if (badge) { badge.textContent = count; badge.style.display = count > 0 ? 'flex' : 'none'; }
-
-  const cartItemsEl = document.getElementById('cartItems');
-  const cartFooter  = document.getElementById('cartFooter');
-  const cartEmpty   = document.getElementById('cartEmpty');
-  const cartTotalEl = document.getElementById('cartTotal');
-  if (!cartItemsEl) return;
-
-  if (_cart.length === 0) {
-    cartEmpty.style.display  = 'flex';
-    cartFooter.style.display = 'none';
-    cartItemsEl.innerHTML    = '';
-  } else {
-    cartEmpty.style.display  = 'none';
-    cartFooter.style.display = 'block';
-    if (cartTotalEl) cartTotalEl.textContent = '₱' + total.toFixed(0);
-    cartItemsEl.innerHTML = _cart.map(c => `
-      <div class="cart-item">
-        <div class="cart-item-info">
-          <div class="cart-item-name">
-            ${escHtml(c.name)}${c.variant ? ` <span class="cart-item-variant">— ${escHtml(c.variant)}</span>` : ''}
-          </div>
-          <div class="cart-item-price">₱${c.price.toFixed(0)} each</div>
-        </div>
-        <div class="cart-item-controls">
-          <button onclick="updateCartQty('${c.id}',-1)" aria-label="Decrease">−</button>
-          <span>${c.qty}</span>
-          <button onclick="updateCartQty('${c.id}',1)"  aria-label="Increase">+</button>
-          <button onclick="removeFromCart('${c.id}')"
-            style="border-color:#fca5a5;color:#b91c1c;" aria-label="Remove">✕</button>
-        </div>
-      </div>
-    `).join('');
-  }
-}
-
 function _flashCartBtn() {
   const btn = document.getElementById('cartBtn');
   if (!btn) return;
@@ -355,10 +315,16 @@ function toggleCart() {
   const drawer  = document.getElementById('cartDrawer');
   const overlay = document.getElementById('cartOverlay');
   if (!drawer) return;
-  if (drawer.classList.contains('open')) { closeCart(); } else {
+  if (drawer.classList.contains('open')) {
+    closeCart();
+  } else {
     drawer.classList.add('open');
     overlay.classList.add('open');
     document.body.style.overflow = 'hidden';
+    // If cart is empty and there's an active order, auto-show tracker
+    if (_cart.length === 0 && _activeOrder) {
+      showTrackerView();
+    }
   }
 }
 
@@ -369,6 +335,12 @@ function closeCart() {
   drawer.classList.remove('open');
   overlay.classList.remove('open');
   document.body.style.overflow = '';
+  // Reset tracker view so cart items are shown next open (if no active order)
+  if (!_activeOrder) {
+    const tracker = document.getElementById('orderTracker');
+    if (tracker) tracker.style.display = 'none';
+    _updateCartUI();
+  }
 }
 
 document.addEventListener('keydown', e => {
@@ -398,28 +370,235 @@ async function placeOrder() {
     items:         _cart.map(c => ({
       itemId: c.itemId, name: c.name, variant: c.variant, price: c.price, qty: c.qty,
     })),
+    status: 'pending',
   };
 
   try {
     await createOrder(order);
     _cart = [];
-    _updateCartUI();
     document.getElementById('orderName').value  = '';
     document.getElementById('orderPhone').value = '';
     document.getElementById('orderNotes').value = '';
-    closeCart();
-    _showOrderSuccess();
+    _saveLastOrder(order);
+    showOrderTracker(order);
   } catch (err) {
     console.error('Order error:', err);
     alert('Could not place order. Please try again.');
-  } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Place Order 🎉'; }
   }
 }
 
-function _showOrderSuccess() {
+/* ── Order Tracker ───────────────────────────────────────────────────────── */
+const TRACKER_STEPS = [
+  { key: 'pending',   label: 'Order Placed', icon: '📋' },
+  { key: 'preparing', label: 'Preparing',    icon: '👨‍🍳' },
+  { key: 'ready',     label: 'Ready!',       icon: '✅' },
+];
+
+let _activeOrder    = null;
+let _trackerChannel = null;
+
+function _saveLastOrder(order) {
+  try { localStorage.setItem('jacs_last_order', JSON.stringify(order)); } catch {}
+}
+function _loadLastOrder() {
+  try {
+    const s = localStorage.getItem('jacs_last_order');
+    if (s) _activeOrder = JSON.parse(s);
+  } catch {}
+}
+function _clearLastOrder() {
+  _activeOrder = null;
+  try { localStorage.removeItem('jacs_last_order'); } catch {}
+}
+
+function _showTrackerBtn() {
+  const btn = document.getElementById('trackLastOrderBtn');
+  if (btn) btn.style.display = _activeOrder ? 'inline-block' : 'none';
+}
+
+function showTrackerView() {
+  if (!_activeOrder) return;
+  document.getElementById('cartItems').style.display   = 'none';
+  document.getElementById('cartEmpty').style.display   = 'none';
+  document.getElementById('cartFooter').style.display  = 'none';
+  document.getElementById('orderTracker').style.display = 'flex';
+  _renderTrackerContent(_activeOrder);
+
+  // Hide refresh button when Supabase gives real-time updates
+  const refreshBtn = document.getElementById('trackerRefreshBtn');
+  if (refreshBtn) refreshBtn.style.display = SUPABASE_CONFIGURED ? 'none' : 'block';
+}
+
+function showOrderTracker(order) {
+  _activeOrder = { ...order };
+  showTrackerView();
+
+  // Subscribe for real-time status pushes from admin
+  if (SUPABASE_CONFIGURED && supabaseClient) {
+    if (_trackerChannel) supabaseClient.removeChannel(_trackerChannel);
+    _trackerChannel = supabaseClient
+      .channel('track-' + order.id)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'orders',
+        filter: `id=eq.${order.id}`,
+      }, payload => {
+        if (!payload.new) return;
+        _activeOrder.status = payload.new.status;
+        _saveLastOrder(_activeOrder);
+        _updateTrackerSteps(payload.new.status);
+        if (payload.new.status === 'ready') {
+          _notifyReady();
+        }
+      })
+      .subscribe();
+  }
+}
+
+function _renderTrackerContent(order) {
+  const status    = order.status || 'pending';
+  const name      = order.customerName || order.customer_name || '';
+  const orderType = order.orderType    || order.order_type    || 'dine-in';
+  const items     = Array.isArray(order.items) ? order.items : [];
+  const ref       = (order.id || '').slice(-8).toUpperCase();
+
+  const refEl = document.getElementById('trackerRef');
+  if (refEl) refEl.textContent = `Ref #${ref}`;
+
+  const metaEl = document.getElementById('trackerMeta');
+  if (metaEl) metaEl.innerHTML = `
+    <strong>${escHtml(name)}</strong>
+    &nbsp;·&nbsp;
+    <span class="tracker-type-badge">${orderType === 'takeout' ? '📦 Takeout' : '🍽 Dine In'}</span>
+  `;
+
+  _updateTrackerSteps(status);
+
+  const listEl = document.getElementById('trackerItemsList');
+  if (listEl) {
+    listEl.innerHTML = items.map(i => {
+      const p = parseFloat(i.price || 0);
+      const q = parseInt(i.qty   || 1, 10);
+      return `<div class="tracker-item-row">
+        <span>${escHtml(i.name)}${i.variant ? ` <span style="color:#a8a29e;font-size:0.72rem;">(${escHtml(i.variant)})</span>` : ''} ×${q}</span>
+        <span class="tracker-item-price">₱${(p * q).toFixed(0)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  const total    = items.reduce((s, i) => s + parseFloat(i.price || 0) * parseInt(i.qty || 1, 10), 0);
+  const totalEl  = document.getElementById('trackerTotal');
+  if (totalEl) totalEl.textContent = '₱' + total.toFixed(0);
+}
+
+function _updateTrackerSteps(status) {
+  const el = document.getElementById('trackerSteps');
+  if (!el) return;
+
+  if (status === 'cancelled') {
+    el.innerHTML = `<div class="tracker-cancelled-msg">✗ Order Cancelled</div>`;
+    _clearLastOrder();
+    return;
+  }
+  if (status === 'completed') {
+    el.innerHTML = `<div class="tracker-completed-msg">🎉 Order Completed — Enjoy!</div>`;
+    _clearLastOrder();
+    return;
+  }
+
+  const statusOrder = ['pending', 'preparing', 'ready'];
+  const cur = statusOrder.indexOf(status);
+  el.innerHTML = TRACKER_STEPS.map((step, i) => {
+    const done   = i < cur;
+    const active = i === cur;
+    const cls    = done ? 'done' : active ? 'active' : '';
+    return `<div class="tracker-step ${cls}">
+      <div class="tracker-step-dot">${done ? '✓' : step.icon}</div>
+      <div class="tracker-step-label">${step.label}</div>
+    </div>`;
+  }).join('');
+}
+
+function startNewOrder() {
+  if (_trackerChannel && SUPABASE_CONFIGURED && supabaseClient) {
+    supabaseClient.removeChannel(_trackerChannel);
+    _trackerChannel = null;
+  }
+  _clearLastOrder();
+  document.getElementById('orderTracker').style.display = 'none';
+  _updateCartUI(); // shows empty cart
+}
+
+async function refreshOrderStatus() {
+  if (!_activeOrder) return;
+  const btn = document.getElementById('trackerRefreshBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '↺ Refreshing…'; }
+  try {
+    const orders = await getOrders();
+    const latest = orders.find(o => o.id === _activeOrder.id);
+    if (latest) {
+      _activeOrder.status = latest.status;
+      _saveLastOrder(_activeOrder);
+      _updateTrackerSteps(latest.status);
+    }
+  } catch (err) {
+    console.error('Refresh error:', err);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↺ Refresh Status'; }
+  }
+}
+
+function _notifyReady() {
   const toast = document.getElementById('orderSuccessToast');
   if (!toast) return;
+  toast.textContent = '🔔 Your order is READY! Please proceed to the counter.';
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 5000);
+  setTimeout(() => toast.classList.remove('show'), 8000);
+}
+
+// On page load: restore last order reference so the "Track my last order" button appears
+_loadLastOrder();
+_showTrackerBtn();
+
+function _updateCartUI() {
+  // Don't touch UI if tracker is showing
+  if (document.getElementById('orderTracker')?.style.display !== 'none') return;
+  const count = _cart.reduce((s, c) => s + c.qty, 0);
+  const total = _cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const badge = document.getElementById('cartBadge');
+  if (badge) { badge.textContent = count; badge.style.display = count > 0 ? 'flex' : 'none'; }
+
+  const cartItemsEl = document.getElementById('cartItems');
+  const cartFooter  = document.getElementById('cartFooter');
+  const cartEmpty   = document.getElementById('cartEmpty');
+  const cartTotalEl = document.getElementById('cartTotal');
+  if (!cartItemsEl) return;
+
+  if (_cart.length === 0) {
+    cartEmpty.style.display  = 'flex';
+    cartFooter.style.display = 'none';
+    cartItemsEl.innerHTML    = '';
+    _showTrackerBtn();
+  } else {
+    cartEmpty.style.display  = 'none';
+    cartFooter.style.display = 'block';
+    if (cartTotalEl) cartTotalEl.textContent = '₱' + total.toFixed(0);
+    cartItemsEl.innerHTML = _cart.map(c => `
+      <div class="cart-item">
+        <div class="cart-item-info">
+          <div class="cart-item-name">
+            ${escHtml(c.name)}${c.variant ? ` <span class="cart-item-variant">— ${escHtml(c.variant)}</span>` : ''}
+          </div>
+          <div class="cart-item-price">₱${c.price.toFixed(0)} each</div>
+        </div>
+        <div class="cart-item-controls">
+          <button onclick="updateCartQty('${c.id}',-1)" aria-label="Decrease">−</button>
+          <span>${c.qty}</span>
+          <button onclick="updateCartQty('${c.id}',1)"  aria-label="Increase">+</button>
+          <button onclick="removeFromCart('${c.id}')"
+            style="border-color:#fca5a5;color:#b91c1c;" aria-label="Remove">✕</button>
+        </div>
+      </div>
+    `).join('');
+  }
 }
