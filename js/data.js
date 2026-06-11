@@ -242,6 +242,25 @@ async function uploadProductImage(file, itemId) {
   return data.publicUrl;
 }
 
+// ── Announcement ─────────────────────────────────────────────────────────────
+async function getAnnouncement() {
+  if (!SUPABASE_CONFIGURED || !supabaseClient) return null;
+  try {
+    const { data, error } = await supabaseClient
+      .from('admin_config').select('value').eq('key', 'announcement').single();
+    if (error || !data) return null;
+    return JSON.parse(data.value);
+  } catch { return null; }
+}
+
+async function setAnnouncement(text, active) {
+  if (!SUPABASE_CONFIGURED || !supabaseClient) return;
+  const { error } = await supabaseClient
+    .from('admin_config')
+    .upsert({ key: 'announcement', value: JSON.stringify({ text, active }) }, { onConflict: 'key' });
+  if (error) throw error;
+}
+
 // ── Password helpers (Supabase-backed, SHA-256 hashed) ───────────────────────
 // Default hash = SHA-256('jacs2024'). Run admin-config-setup.sql once in Supabase.
 const DEFAULT_PASS_HASH = 'be1a0c80d5cefe9b9ae6086bcf8ede8c7efaed1637065cf1091332460d49ada9';

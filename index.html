@@ -12,6 +12,13 @@
 
 <body>
 
+<!-- ═══════════════════════ ANNOUNCEMENT BANNER ══════════════════ -->
+<div id="announcementBanner" style="display:none" role="alert">
+  <span class="ann-icon">📢</span>
+  <span id="announcementText"></span>
+  <button class="ann-dismiss" onclick="dismissAnnouncement()" aria-label="Dismiss announcement">✕</button>
+</div>
+
 <!-- ═══════════════════════════ NAVBAR ════════════════════════════ -->
 <nav id="navbar">
   <div class="nav-inner">
@@ -155,7 +162,12 @@
       <h2 class="section-title" style="margin-bottom:0.5rem;">Inside the Haven</h2>
       <p class="section-sub" style="margin:0 auto;">Get a peek at our cozy corner before you visit.</p>
     </div>
-    <div id="galleryGrid" class="gallery-grid"></div>
+    <div class="gallery-carousel">
+      <div class="gallery-track" id="galleryTrack"></div>
+      <button class="gallery-arrow gallery-prev" onclick="galleryMove(-1)" aria-label="Previous photo">&#8249;</button>
+      <button class="gallery-arrow gallery-next" onclick="galleryMove(1)" aria-label="Next photo">&#8250;</button>
+      <div class="gallery-dots" id="galleryDots"></div>
+    </div>
   </div>
 </section>
 
@@ -325,6 +337,13 @@
     </div>
     <div id="sizePickerOpts" class="size-picker-opts"></div>
   </div>
+</div>
+
+
+<!-- ═══════════════════════════ LIGHTBOX ═════════════════════════ -->
+<div id="lightbox" class="lightbox" style="display:none" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()" aria-label="Close">✕</button>
+  <img id="lightboxImg" class="lightbox-img" alt="" onclick="event.stopPropagation()">
 </div>
 
 

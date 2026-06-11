@@ -82,7 +82,8 @@ async function renderMenu(filterCat) {
           card.className = 'pizza-card fade-in-row';
           card.style.animationDelay = `${(rendered + i) * 0.05}s`;
           card.innerHTML = `
-            <div class="pizza-img">
+            <div class="${item.imageUrl ? 'pizza-img has-photo' : 'pizza-img'}"
+                 ${item.imageUrl ? `onclick="event.stopPropagation();openLightbox('${escHtml(item.imageUrl)}')"` : ''}>
               ${item.imageUrl
                 ? `<img src="${escHtml(item.imageUrl)}" alt="${escHtml(item.name)}" loading="lazy">`
                 : `<div class="pizza-img-ph">🍕</div>`}
@@ -105,7 +106,8 @@ async function renderMenu(filterCat) {
           row.className = 'menu-row fade-in-row';
           row.style.animationDelay = `${(rendered + i) * 0.03}s`;
           const imgHtml = item.imageUrl
-            ? `<img src="${escHtml(item.imageUrl)}" class="item-thumb" alt="" loading="lazy">`
+            ? `<img src="${escHtml(item.imageUrl)}" class="item-thumb" alt="${escHtml(item.name)}" loading="lazy"
+                onclick="openLightbox('${escHtml(item.imageUrl)}')">`
             : '';
           row.innerHTML = `
             <div class="item-icon">${icon}</div>
@@ -182,11 +184,12 @@ function escHtml(str) {
   el.style.color = open ? '#86efac' : '#fca5a5';
 })();
 
-/* ── Gallery ─────────────────────────────────────────────────────────────── */
+/* ── Gallery carousel ────────────────────────────────────────────────────── */
 async function renderGallery() {
   const section = document.getElementById('gallery');
-  const grid    = document.getElementById('galleryGrid');
-  if (!section || !grid) return;
+  const track   = document.getElementById('galleryTrack');
+  const dotsEl  = document.getElementById('galleryDots');
+  if (!section || !track) return;
 
   const photos = await getShopPhotos();
   if (!photos.length) {
@@ -200,12 +203,61 @@ async function renderGallery() {
   const mLink = document.getElementById('galleryMobileLink');
   if (mLink) mLink.style.display = 'block';
 
-  grid.innerHTML = photos.map(p => `
-    <div class="gallery-photo fade-in-row">
-      <img src="${escHtml(p.imageUrl)}" alt="${escHtml(p.caption || 'Shop photo')}" loading="lazy">
+  track.innerHTML = photos.map((p, i) => `
+    <div class="gallery-slide fade-in-row" onclick="openLightbox('${escHtml(p.imageUrl)}')">
+      <img src="${escHtml(p.imageUrl)}" alt="${escHtml(p.caption || 'Shop photo')}" loading="${i < 3 ? 'eager' : 'lazy'}">
       ${p.caption ? `<div class="gallery-caption">${escHtml(p.caption)}</div>` : ''}
     </div>
   `).join('');
+
+  if (dotsEl) {
+    dotsEl.innerHTML = photos.map((_, i) =>
+      `<button class="gallery-dot${i === 0 ? ' active' : ''}" onclick="galleryGoTo(${i})" aria-label="Photo ${i + 1}"></button>`
+    ).join('');
+
+    track.addEventListener('scroll', () => {
+      const trackLeft = track.getBoundingClientRect().left;
+      let closest = 0, minDist = Infinity;
+      track.querySelectorAll('.gallery-slide').forEach((slide, i) => {
+        const dist = Math.abs(slide.getBoundingClientRect().left - trackLeft);
+        if (dist < minDist) { minDist = dist; closest = i; }
+      });
+      dotsEl.querySelectorAll('.gallery-dot').forEach((d, i) =>
+        d.classList.toggle('active', i === closest)
+      );
+    }, { passive: true });
+  }
+}
+
+function galleryMove(dir) {
+  const track = document.getElementById('galleryTrack');
+  if (!track) return;
+  const slide = track.querySelector('.gallery-slide');
+  if (!slide) return;
+  track.scrollBy({ left: dir * (slide.offsetWidth + 14), behavior: 'smooth' });
+}
+
+function galleryGoTo(idx) {
+  const track = document.getElementById('galleryTrack');
+  if (!track) return;
+  const slides = track.querySelectorAll('.gallery-slide');
+  if (slides[idx]) slides[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+}
+
+/* ── Lightbox ────────────────────────────────────────────────────────────── */
+function openLightbox(src) {
+  const lb = document.getElementById('lightbox');
+  if (!lb) return;
+  document.getElementById('lightboxImg').src = src;
+  lb.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+  const lb = document.getElementById('lightbox');
+  if (!lb) return;
+  lb.style.display = 'none';
+  document.body.style.overflow = '';
 }
 
 (function () {
@@ -345,6 +397,7 @@ function closeCart() {
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
+    closeLightbox();
     closeCart();
     document.getElementById('sizePickerOverlay')?.classList.remove('open');
   }
@@ -417,6 +470,23 @@ function _showTrackerBtn() {
   if (btn) btn.style.display = _activeOrder ? 'inline-block' : 'none';
 }
 
+function _subscribeToOrder(orderId) {
+  if (_trackerChannel || !SUPABASE_CONFIGURED || !supabaseClient) return;
+  _trackerChannel = supabaseClient
+    .channel('track-' + orderId)
+    .on('postgres_changes', {
+      event: 'UPDATE', schema: 'public', table: 'orders',
+      filter: `id=eq.${orderId}`,
+    }, payload => {
+      if (!payload.new) return;
+      _activeOrder.status = payload.new.status;
+      _saveLastOrder(_activeOrder);
+      _updateTrackerSteps(payload.new.status);
+      if (payload.new.status === 'ready') _notifyReady();
+    })
+    .subscribe();
+}
+
 function showTrackerView() {
   if (!_activeOrder) return;
   document.getElementById('cartItems').style.display   = 'none';
@@ -425,34 +495,21 @@ function showTrackerView() {
   document.getElementById('orderTracker').style.display = 'flex';
   _renderTrackerContent(_activeOrder);
 
-  // Hide refresh button when Supabase gives real-time updates
   const refreshBtn = document.getElementById('trackerRefreshBtn');
   if (refreshBtn) refreshBtn.style.display = SUPABASE_CONFIGURED ? 'none' : 'block';
+
+  // Re-subscribe if channel dropped (e.g. page was refreshed)
+  _subscribeToOrder(_activeOrder.id);
 }
 
 function showOrderTracker(order) {
   _activeOrder = { ...order };
-  showTrackerView();
-
-  // Subscribe for real-time status pushes from admin
-  if (SUPABASE_CONFIGURED && supabaseClient) {
-    if (_trackerChannel) supabaseClient.removeChannel(_trackerChannel);
-    _trackerChannel = supabaseClient
-      .channel('track-' + order.id)
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'orders',
-        filter: `id=eq.${order.id}`,
-      }, payload => {
-        if (!payload.new) return;
-        _activeOrder.status = payload.new.status;
-        _saveLastOrder(_activeOrder);
-        _updateTrackerSteps(payload.new.status);
-        if (payload.new.status === 'ready') {
-          _notifyReady();
-        }
-      })
-      .subscribe();
+  // Clear any stale channel before opening a fresh one
+  if (_trackerChannel && supabaseClient) {
+    supabaseClient.removeChannel(_trackerChannel);
+    _trackerChannel = null;
   }
+  showTrackerView();
 }
 
 function _renderTrackerContent(order) {
@@ -556,9 +613,53 @@ function _notifyReady() {
   setTimeout(() => toast.classList.remove('show'), 8000);
 }
 
-// On page load: restore last order reference so the "Track my last order" button appears
+// ── Announcement banner ───────────────────────────────────────────────────────
+function _renderAnnouncement(ann) {
+  const banner = document.getElementById('announcementBanner');
+  const navbar = document.getElementById('navbar');
+  if (!banner) return;
+  const dismissed = sessionStorage.getItem('jacs_ann_dismissed');
+  if (ann && ann.active && ann.text && ann.text.trim() && !dismissed) {
+    document.getElementById('announcementText').textContent = ann.text.trim();
+    banner.style.display = 'flex';
+    requestAnimationFrame(() => {
+      if (navbar) navbar.style.top = banner.offsetHeight + 'px';
+    });
+  } else {
+    banner.style.display = 'none';
+    if (navbar) navbar.style.top = '';
+  }
+}
+
+function dismissAnnouncement() {
+  sessionStorage.setItem('jacs_ann_dismissed', '1');
+  _renderAnnouncement(null);
+}
+
+(async function () {
+  const ann = await getAnnouncement();
+  _renderAnnouncement(ann);
+
+  if (SUPABASE_CONFIGURED && supabaseClient) {
+    supabaseClient
+      .channel('ann-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_config' }, payload => {
+        if (payload.new?.key !== 'announcement') return;
+        try {
+          const updated = JSON.parse(payload.new.value);
+          // Clear dismissed flag so a new message is always seen
+          if (updated.active && updated.text) sessionStorage.removeItem('jacs_ann_dismissed');
+          _renderAnnouncement(updated);
+        } catch {}
+      })
+      .subscribe();
+  }
+})();
+
+// On page load: restore last order and re-subscribe for live status updates
 _loadLastOrder();
 _showTrackerBtn();
+if (_activeOrder) _subscribeToOrder(_activeOrder.id);
 
 function _updateCartUI() {
   // Don't touch UI if tracker is showing

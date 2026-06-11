@@ -78,6 +78,11 @@ CREATE POLICY "Allow delete orders"        ON public.orders FOR DELETE USING (TR
 CREATE INDEX IF NOT EXISTS idx_orders_status     ON public.orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON public.orders(created_at DESC);
 
+-- Required for Supabase Realtime row-level filters (id=eq.xxx) to fire on UPDATE
+ALTER TABLE public.orders REPLICA IDENTITY FULL;
+-- Ensure the orders table is included in the realtime publication
+ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+
 -- ══════════════════════════════════════════════════════════════
 -- 8. Admin config table (stores hashed admin password)
 CREATE TABLE IF NOT EXISTS public.admin_config (
@@ -94,6 +99,10 @@ CREATE POLICY "Allow update admin_config" ON public.admin_config FOR UPDATE USIN
 DROP POLICY IF EXISTS "Allow insert admin_config" ON public.admin_config;
 CREATE POLICY "Allow insert admin_config" ON public.admin_config FOR INSERT WITH CHECK (TRUE);
 
+-- Required for Supabase Realtime to broadcast updates on this table
+ALTER TABLE public.admin_config REPLICA IDENTITY FULL;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.admin_config;
+
 -- Insert default password hash (SHA-256 of 'jacs2024')
 -- Change this immediately after first login via the Settings → Change Password panel
 INSERT INTO public.admin_config (key, value)
@@ -101,11 +110,35 @@ VALUES ('password_hash', 'be1a0c80d5cefe9b9ae6086bcf8ede8c7efaed1637065cf1091332
 ON CONFLICT (key) DO NOTHING;
 
 -- ══════════════════════════════════════════════════════════════
--- STORAGE SETUP (do this in the Supabase Dashboard UI):
--- 1. Go to Storage in your project sidebar
--- 2. Click "New bucket"
--- 3. Name it: product-images   → Check "Public bucket" → Save
--- 4. Name it: shop-photos      → Check "Public bucket" → Save
--- 5. In each bucket Policies, add a policy to allow all operations
---    for the anon role (INSERT, SELECT, UPDATE, DELETE)
+-- STORAGE SETUP
+-- Step 1: Create the buckets in the Dashboard UI
+--   Storage → New bucket → "product-images" → Public bucket ✓
+--   Storage → New bucket → "shop-photos"    → Public bucket ✓
+--
+-- Step 2: Run the SQL below to add RLS policies (fixes "violates
+--   row-level security policy" error when uploading images)
 -- ══════════════════════════════════════════════════════════════
+
+-- product-images bucket policies
+DROP POLICY IF EXISTS "Allow anon all on product-images" ON storage.objects;
+CREATE POLICY "Allow anon all on product-images"
+  ON storage.objects FOR ALL TO anon
+  USING (bucket_id = 'product-images')
+  WITH CHECK (bucket_id = 'product-images');
+
+DROP POLICY IF EXISTS "Allow public read product-images" ON storage.objects;
+CREATE POLICY "Allow public read product-images"
+  ON storage.objects FOR SELECT TO public
+  USING (bucket_id = 'product-images');
+
+-- shop-photos bucket policies
+DROP POLICY IF EXISTS "Allow anon all on shop-photos" ON storage.objects;
+CREATE POLICY "Allow anon all on shop-photos"
+  ON storage.objects FOR ALL TO anon
+  USING (bucket_id = 'shop-photos')
+  WITH CHECK (bucket_id = 'shop-photos');
+
+DROP POLICY IF EXISTS "Allow public read shop-photos" ON storage.objects;
+CREATE POLICY "Allow public read shop-photos"
+  ON storage.objects FOR SELECT TO public
+  USING (bucket_id = 'shop-photos');

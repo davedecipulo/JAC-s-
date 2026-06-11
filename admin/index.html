@@ -641,6 +641,28 @@
     [data-theme="dark"] .status-ok          { background: #052e16; border-color: #166534; color: #86efac; }
     [data-theme="dark"] .status-warn        { background: #2a1e0d; border-color: #5d3a1a; color: #fbbf24; }
 
+    /* ── Gallery batch upload progress ── */
+    .gallery-upload-progress {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 0.5rem; padding: 1.5rem; width: 100%; pointer-events: none;
+    }
+    .gallery-upload-progress .progress-icon { font-size: 1.8rem; line-height: 1; }
+    .gallery-upload-progress .progress-label {
+      font-size: 0.82rem; font-weight: 700; color: var(--brew);
+    }
+    .gallery-progress-track {
+      width: 100%; max-width: 240px; height: 6px;
+      background: rgba(245,158,11,0.18); border-radius: 99px; overflow: hidden;
+    }
+    .gallery-progress-fill {
+      height: 100%; background: linear-gradient(90deg, var(--amber), #fbbf24);
+      border-radius: 99px;
+      transition: width 0.3s ease;
+      box-shadow: 0 0 8px rgba(245,158,11,0.4);
+    }
+    .gallery-progress-sub { font-size: 0.72rem; color: var(--muted); }
+    [data-theme="dark"] .gallery-upload-progress .progress-label { color: #fbbf24; }
+
     /* ════════════ GALLERY PANEL ════════════ */
     .gallery-admin-grid {
       display: grid;
@@ -785,18 +807,19 @@
           <span id="gallerySupabaseNote"></span>
         </p>
         <div class="field">
-          <label>Caption <span style="font-weight:400;color:#a8a29e;">(optional)</span></label>
+          <label>Caption <span style="font-weight:400;color:#a8a29e;">(optional — applies to all photos in batch)</span></label>
           <input type="text" id="galleryCaptionInput" placeholder="e.g. Our cozy seating area, Evening ambiance…">
         </div>
         <div class="img-upload-area" id="galleryUploadArea"
              onclick="document.getElementById('galleryFileInput').click()">
-          <div class="img-placeholder">
+          <div id="galleryUploadPlaceholder" class="img-placeholder">
             <div class="img-placeholder-icon">📷</div>
             <span>Click to upload or drag &amp; drop</span>
-            <span style="font-size:0.7rem;color:#d6d3d1;">JPG · PNG · WEBP</span>
+            <span style="font-size:0.7rem;color:#d6d3d1;">JPG · PNG · WEBP &nbsp;·&nbsp; <strong style="color:#fbbf24;">Multiple files OK</strong></span>
           </div>
           <input type="file" id="galleryFileInput"
                  accept="image/jpeg,image/png,image/webp"
+                 multiple
                  style="display:none"
                  onchange="handleGalleryFileChange(this)">
         </div>
@@ -851,6 +874,29 @@
           <br><br>
           To set up: edit <code style="background:#f3f4f6;padding:1px 5px;border-radius:3px;">js/supabase-config.js</code> with your project URL and anon key, then run <code style="background:#f3f4f6;padding:1px 5px;border-radius:3px;">supabase-setup.sql</code> in your SQL Editor.
         </p>
+      </div>
+
+      <div class="settings-card">
+        <h3>📢 Announcement</h3>
+        <p style="font-size:0.82rem;color:#78716c;line-height:1.65;margin-bottom:1rem;">
+          Show a short message banner at the top of the customer website — great for daily specials, holiday hours, or quick notices. Updates live for all visitors.
+        </p>
+        <div class="field">
+          <label class="toggle-avail" for="annActive">
+            <input type="checkbox" id="annActive">
+            <span class="toggle-avail-label">Show banner on customer site</span>
+          </label>
+        </div>
+        <div class="field">
+          <label>Message
+            <span id="annCharCount" style="font-weight:400;color:#a8a29e;margin-left:0.4rem;">0/120</span>
+          </label>
+          <textarea id="annText" rows="2" maxlength="120"
+            placeholder="e.g. 🎉 Buy 1 get 1 free on all iced coffee today only!"
+            oninput="document.getElementById('annCharCount').textContent=this.value.length+'/120'"></textarea>
+          <p class="hint">Emojis welcome. Max 120 characters.</p>
+        </div>
+        <button class="btn-save" onclick="publishAnnouncement()" style="width:100%">Publish Announcement →</button>
       </div>
 
       <div class="settings-card">
@@ -1013,6 +1059,7 @@ document.querySelectorAll('.admin-tab').forEach(tab => {
 async function initApp() {
   renderSupabaseStatus();
   await refreshAll();
+  loadAnnouncementAdmin();
   document.getElementById('searchInput').addEventListener('input', renderTableFromCache);
   document.getElementById('catFilter').addEventListener('change', renderTableFromCache);
   document.getElementById('availFilter').addEventListener('change', renderTableFromCache);
@@ -1379,7 +1426,7 @@ async function initGalleryTab() {
     note.innerHTML = ' <span style="color:#ef4444;font-weight:700;">⚠ Photo upload requires Supabase storage to be configured.</span>';
   }
 
-  // Drag-drop on gallery upload area
+  // Drag-drop on gallery upload area (supports multiple files)
   const area = document.getElementById('galleryUploadArea');
   if (area) {
     area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('dragging'); });
@@ -1387,8 +1434,8 @@ async function initGalleryTab() {
     area.addEventListener('drop', async e => {
       e.preventDefault();
       area.classList.remove('dragging');
-      const file = e.dataTransfer.files[0];
-      if (file && file.type.startsWith('image/')) await uploadAndAddPhoto(file);
+      const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+      if (files.length) await uploadPhotoBatch(files);
     });
   }
 
@@ -1434,31 +1481,76 @@ function renderGalleryGrid() {
 }
 
 async function handleGalleryFileChange(input) {
-  const file = input.files[0];
-  if (!file) return;
-  await uploadAndAddPhoto(file);
+  const files = Array.from(input.files).filter(f => f.type.startsWith('image/'));
   input.value = '';
+  if (!files.length) return;
+  await uploadPhotoBatch(files);
 }
 
-async function uploadAndAddPhoto(file) {
+function _setGalleryProgress(done, total) {
+  const ph = document.getElementById('galleryUploadPlaceholder');
+  if (!ph) return;
+  if (done === null) {
+    // Reset to normal state
+    ph.innerHTML = `
+      <div class="img-placeholder-icon">📷</div>
+      <span>Click to upload or drag &amp; drop</span>
+      <span style="font-size:0.7rem;color:#d6d3d1;">JPG · PNG · WEBP &nbsp;·&nbsp; <strong style="color:#fbbf24;">Multiple files OK</strong></span>`;
+    return;
+  }
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  ph.innerHTML = `
+    <div class="gallery-upload-progress">
+      <div class="progress-icon">📤</div>
+      <div class="progress-label">Uploading ${done} / ${total}</div>
+      <div class="gallery-progress-track">
+        <div class="gallery-progress-fill" style="width:${pct}%"></div>
+      </div>
+      <div class="progress-sub">${pct}% complete</div>
+    </div>`;
+}
+
+async function uploadPhotoBatch(files) {
   if (!SUPABASE_CONFIGURED) {
     showToast('⚠ Configure Supabase first to upload shop photos.');
     return;
   }
   const caption = (document.getElementById('galleryCaptionInput')?.value || '').trim();
-  showToast('Uploading photo…');
-  try {
-    const photoId  = generateId();
-    const imageUrl = await uploadShopPhoto(file, photoId);
-    await addShopPhotoRecord({ id: photoId, caption, imageUrl });
-    if (document.getElementById('galleryCaptionInput')) {
-      document.getElementById('galleryCaptionInput').value = '';
+  const total   = files.length;
+  let done = 0, failed = 0;
+
+  // Disable click-to-open while uploading
+  const area = document.getElementById('galleryUploadArea');
+  if (area) area.style.pointerEvents = 'none';
+
+  _setGalleryProgress(0, total);
+
+  for (const file of files) {
+    try {
+      const photoId  = generateId();
+      const imageUrl = await uploadShopPhoto(file, photoId);
+      await addShopPhotoRecord({ id: photoId, caption, imageUrl });
+    } catch (err) {
+      failed++;
+      console.error('Upload failed for', file.name, err);
     }
-    cachedPhotos = await getShopPhotos();
-    renderGalleryGrid();
-    showToast('Shop photo uploaded ✓');
-  } catch (err) {
-    showToast('Error: ' + err.message);
+    done++;
+    _setGalleryProgress(done, total);
+  }
+
+  // Reset UI
+  if (area) area.style.pointerEvents = '';
+  _setGalleryProgress(null, null);
+  const captionEl = document.getElementById('galleryCaptionInput');
+  if (captionEl) captionEl.value = '';
+
+  cachedPhotos = await getShopPhotos();
+  renderGalleryGrid();
+
+  if (failed === 0) {
+    showToast(total === 1 ? 'Photo uploaded ✓' : `${total} photos uploaded ✓`);
+  } else {
+    showToast(`${total - failed} of ${total} uploaded (${failed} failed)`);
   }
 }
 
@@ -1613,6 +1705,28 @@ async function moveOrderStatus(id, status) {
     updateOrderStats();
     updateOrdersBadge();
     showToast(`Order marked as "${status}" ✓`);
+  } catch (err) {
+    showToast('Error: ' + err.message);
+  }
+}
+
+// ── Announcement ─────────────────────────────────────────────────────────────
+async function loadAnnouncementAdmin() {
+  try {
+    const ann = await getAnnouncement();
+    if (!ann) return;
+    document.getElementById('annText').value     = ann.text  || '';
+    document.getElementById('annActive').checked = !!ann.active;
+    document.getElementById('annCharCount').textContent = (ann.text || '').length + '/120';
+  } catch {}
+}
+
+async function publishAnnouncement() {
+  const text   = document.getElementById('annText').value.trim();
+  const active = document.getElementById('annActive').checked;
+  try {
+    await setAnnouncement(text, active);
+    showToast(active && text ? '📢 Announcement published ✓' : 'Announcement hidden ✓');
   } catch (err) {
     showToast('Error: ' + err.message);
   }
