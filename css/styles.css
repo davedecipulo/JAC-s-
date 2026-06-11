@@ -668,6 +668,23 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+.admin-login-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem; height: 2rem;
+  border-radius: 0.5rem;
+  color: rgba(214,211,209,0.7);
+  text-decoration: none;
+  transition: color 0.2s, background 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+.admin-login-btn:hover {
+  color: var(--amber-400);
+  background: rgba(255,255,255,0.08);
+  box-shadow: 0 0 10px rgba(251,191,36,0.3);
+  transform: scale(1.1);
+}
+
 .dark-toggle {
   background: none;
   border: none;
@@ -753,3 +770,349 @@ body {
 
 [data-theme="dark"] .location-card h3 { color: var(--text-main); }
 [data-theme="dark"] .loc-row          { color: var(--text-muted); }
+
+/* ══ FUTURISTIC · PLAYFUL · INTERACTIVE ENHANCEMENTS ══════════════════════ */
+
+/* ── New Animations ─────────────────────────────────────────────────────── */
+@keyframes neonPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(245,158,11,0.3); }
+  50%       { box-shadow: 0 0 22px rgba(245,158,11,0.65), 0 0 44px rgba(245,158,11,0.2); }
+}
+@keyframes shimmerSweep {
+  0%   { transform: translateX(-150%) skewX(-15deg); }
+  100% { transform: translateX(250%)  skewX(-15deg); }
+}
+@keyframes gridScroll {
+  from { background-position: 0 0; }
+  to   { background-position: 0 60px; }
+}
+@keyframes blobFloat1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(28px, -22px) scale(1.06); }
+  66%       { transform: translate(-14px, 14px) scale(0.97); }
+}
+@keyframes blobFloat2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(-22px, 16px) scale(1.04); }
+  66%       { transform: translate(18px, -22px) scale(0.96); }
+}
+@keyframes floatUpDown {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-7px); }
+}
+@keyframes spinnerRing {
+  to { transform: rotate(360deg); }
+}
+@keyframes fadeInRow {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+@keyframes glitch {
+  0%, 88%, 100% { transform: none; clip-path: none; }
+  89%  { transform: skewX(3deg) translateX(3px); }
+  90%  { transform: skewX(-3deg) translateX(-3px); }
+  91%  { transform: none; }
+  92%  { transform: skewX(1deg); }
+  93%  { transform: none; }
+}
+
+/* ── Perspective grid overlay on hero ──────────────────────────────────── */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(251,191,36,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(251,191,36,0.07) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: gridScroll 3s linear infinite;
+  mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.7) 35%, rgba(0,0,0,0.5) 75%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.7) 35%, rgba(0,0,0,0.5) 75%, transparent 100%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ── Animated hero blobs ───────────────────────────────────────────────── */
+.hero-blob-1 { animation: blobFloat1 14s ease-in-out infinite; }
+.hero-blob-2 { animation: blobFloat2 17s ease-in-out infinite; }
+
+/* ── Logo glitch hover ─────────────────────────────────────────────────── */
+.nav-logo {
+  position: relative;
+}
+.nav-logo:hover {
+  animation: glitch 0.4s steps(1) forwards;
+  text-shadow: 2px 0 rgba(251,191,36,0.5), -2px 0 rgba(160,82,45,0.4);
+}
+
+/* ── Nav link animated underline ───────────────────────────────────────── */
+.nav-links a { position: relative; }
+.nav-links a::after {
+  content: '';
+  position: absolute;
+  bottom: -4px; left: 0;
+  width: 100%; height: 2px;
+  background: linear-gradient(90deg, var(--amber-400), var(--amber-500));
+  border-radius: 99px;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 6px rgba(251,191,36,0.6);
+}
+.nav-links a:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+/* ── Button shimmer + neon glow ────────────────────────────────────────── */
+.btn-primary, .btn-outline, .nav-cta {
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary::after, .nav-cta::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+  transform: skewX(-15deg);
+  transition: left 0.5s ease;
+}
+.btn-primary:hover::after, .nav-cta:hover::after { left: 120%; }
+.btn-primary:hover {
+  box-shadow: 0 0 22px rgba(245,158,11,0.45), 0 0 44px rgba(245,158,11,0.15), 0 8px 24px rgba(245,158,11,0.35);
+}
+.btn-outline:hover {
+  box-shadow: 0 0 16px rgba(251,191,36,0.3), inset 0 0 16px rgba(251,191,36,0.06);
+}
+
+/* ── Hero stats glow ───────────────────────────────────────────────────── */
+.hero-stat {
+  transition: background 0.3s;
+  cursor: default;
+}
+.hero-stat:hover { background: rgba(255,255,255,0.12); }
+.hero-stat:hover .hero-stat-num {
+  text-shadow: 0 0 18px rgba(251,191,36,0.7);
+  transform: scale(1.05);
+}
+.hero-stat-num { transition: transform 0.2s, text-shadow 0.2s; display: inline-block; }
+.hero-stats { animation: neonPulse 4s ease-in-out infinite; }
+
+/* ── Pill hover glow ───────────────────────────────────────────────────── */
+.pill {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+}
+.pill:hover {
+  background: var(--amber-500);
+  border-color: var(--amber-500);
+  color: #fff;
+  transform: translateY(-3px) scale(1.04);
+  box-shadow: 0 6px 16px rgba(245,158,11,0.35);
+}
+
+/* ── About collage floating ────────────────────────────────────────────── */
+.collage-img-1 { animation: floatUpDown 7s ease-in-out infinite; }
+.collage-img-2 { animation: floatUpDown 9s 0.8s ease-in-out infinite reverse; }
+.collage-img-3 { animation: floatUpDown 8s 0.4s ease-in-out infinite; }
+.collage-img-4 { animation: floatUpDown 6s 1.2s ease-in-out infinite reverse; }
+
+.about-badge { animation: neonPulse 3s ease-in-out infinite; }
+.about-collage img { transition: box-shadow 0.3s; }
+.about-collage img:hover {
+  box-shadow: 0 8px 28px rgba(245,158,11,0.25), 0 0 0 2px rgba(245,158,11,0.2);
+  z-index: 1;
+}
+
+/* ── Section title gradient text ───────────────────────────────────────── */
+.section-title {
+  background: linear-gradient(135deg, var(--text-main) 55%, var(--brew-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+[data-theme="dark"] .section-title {
+  background: linear-gradient(135deg, #fef3c7 55%, var(--amber-400));
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* ── Tab button glow ───────────────────────────────────────────────────── */
+.tab-btn {
+  position: relative;
+  overflow: hidden;
+}
+.tab-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(245,158,11,0.18), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.tab-btn:hover::before { opacity: 1; }
+.tab-btn.active { animation: neonPulse 2.5s ease-in-out infinite; }
+
+/* ── Menu row neon left border + icon bounce ───────────────────────────── */
+.menu-row {
+  border-left: 3px solid transparent;
+  transition: background 0.2s, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s, box-shadow 0.2s;
+}
+.menu-row:hover {
+  border-left-color: var(--amber-500);
+  transform: translateX(7px);
+  box-shadow: inset 0 0 24px rgba(245,158,11,0.06);
+}
+.item-icon { transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.menu-row:hover .item-icon {
+  background: var(--amber-400);
+  box-shadow: 0 0 14px rgba(251,191,36,0.45);
+  transform: scale(1.15) rotate(-6deg);
+}
+
+/* Item thumbnail (for items with uploaded photos) */
+.item-thumb {
+  width: 2.4rem; height: 2.4rem;
+  border-radius: 0.5rem;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1.5px solid rgba(245,158,11,0.2);
+  transition: transform 0.2s;
+}
+.menu-row:hover .item-thumb { transform: scale(1.08); }
+
+/* ── Pizza card holographic shimmer ────────────────────────────────────── */
+.pizza-card { position: relative; overflow: hidden; }
+.pizza-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -60%;
+  width: 35%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+  transform: skewX(-12deg);
+  z-index: 1;
+  pointer-events: none;
+  transition: left 0s;
+}
+.pizza-card:hover::after {
+  left: 130%;
+  transition: left 0.55s ease;
+}
+.pizza-card:hover {
+  box-shadow: 0 16px 36px rgba(0,0,0,0.13), 0 0 0 1.5px rgba(245,158,11,0.22), 0 0 22px rgba(245,158,11,0.08);
+}
+
+/* ── Cat-header icon bounce ────────────────────────────────────────────── */
+.cat-header span:first-child {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.cat-header:hover span:first-child { transform: scale(1.25) rotate(8deg); }
+
+/* ── Contact input glow ────────────────────────────────────────────────── */
+.form-input {
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s;
+}
+.form-input:focus {
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 3px rgba(245,158,11,0.15), 0 4px 14px rgba(245,158,11,0.1);
+}
+
+/* ── Submit button shimmer ─────────────────────────────────────────────── */
+.btn-submit {
+  position: relative;
+  overflow: hidden;
+  letter-spacing: 0.02em;
+}
+.btn-submit::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  transform: skewX(-15deg);
+  transition: left 0.5s ease;
+}
+.btn-submit:hover::after { left: 120%; }
+.btn-submit:hover {
+  box-shadow: 0 0 22px rgba(59,31,10,0.28), 0 8px 22px rgba(59,31,10,0.2);
+}
+
+/* ── Footer gradient animation ─────────────────────────────────────────── */
+.footer {
+  background: linear-gradient(135deg, var(--brew-dark), var(--brew-medium), #4a2710, var(--brew-dark));
+  background-size: 300% 300%;
+  animation: gradientShift 10s ease infinite;
+}
+.footer-links a { transition: color 0.2s, text-shadow 0.2s; }
+.footer-links a:hover { text-shadow: 0 0 8px rgba(251,191,36,0.4); }
+
+/* ── Scrollbar glow ────────────────────────────────────────────────────── */
+::-webkit-scrollbar-thumb:hover {
+  background: var(--amber-500);
+  box-shadow: 0 0 8px rgba(245,158,11,0.5);
+}
+
+/* ── Fade-in rows on menu load ─────────────────────────────────────────── */
+.fade-in-row {
+  opacity: 0;
+  animation: fadeInRow 0.4s ease forwards;
+}
+
+/* ── Loading state ─────────────────────────────────────────────────────── */
+.menu-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  padding: 4rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.loading-spinner {
+  width: 26px; height: 26px;
+  border: 3px solid rgba(245,158,11,0.18);
+  border-top-color: var(--amber-500);
+  border-radius: 50%;
+  animation: spinnerRing 0.75s linear infinite;
+}
+
+/* ── Dark mode futuristic additions ─────────────────────────────────────── */
+[data-theme="dark"] .menu-row:hover {
+  box-shadow: inset 0 0 24px rgba(245,158,11,0.09), 0 0 0 1px rgba(245,158,11,0.12);
+}
+[data-theme="dark"] .pizza-card {
+  border: 1px solid rgba(251,191,36,0.09);
+}
+[data-theme="dark"] .pizza-card:hover {
+  border-color: rgba(251,191,36,0.22);
+  box-shadow: 0 16px 36px rgba(0,0,0,0.45), 0 0 22px rgba(245,158,11,0.1);
+}
+[data-theme="dark"] .hero::before {
+  background-image:
+    linear-gradient(rgba(251,191,36,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(251,191,36,0.04) 1px, transparent 1px);
+}
+[data-theme="dark"] .form-input:focus {
+  box-shadow: 0 0 0 3px rgba(245,158,11,0.2), 0 0 18px rgba(245,158,11,0.1);
+}
+[data-theme="dark"] .tab-btn.active {
+  box-shadow: 0 4px 14px rgba(245,158,11,0.3), 0 0 22px rgba(245,158,11,0.1);
+}
+[data-theme="dark"] .hero-stats {
+  box-shadow: 0 0 30px rgba(245,158,11,0.08);
+}
+[data-theme="dark"] .pill:hover {
+  box-shadow: 0 6px 16px rgba(245,158,11,0.4), 0 0 22px rgba(245,158,11,0.15);
+}
+[data-theme="dark"] .item-thumb {
+  border-color: rgba(245,158,11,0.25);
+}

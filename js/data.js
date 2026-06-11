@@ -1,8 +1,3 @@
-// ── Storage key ──────────────────────────────────────────────────────────────
-const STORAGE_KEY  = 'jacs_menu_v1';
-const PASS_KEY     = 'jacs_admin_pass';
-const DEFAULT_PASS = btoa('jacs2024');
-
 // ── Category & subcategory metadata ──────────────────────────────────────────
 const MENU_META = {
   drinks: {
@@ -124,47 +119,137 @@ const DEFAULT_ITEMS = [
   { id:'f34', name:'Ramen',         category:'food', sub:'Noodles & More', price:'₱99', from:99, available:true, featured:false, desc:'Add ons: Egg +₱15, Cheese +₱10', imageUrl:'' },
   { id:'f35', name:'Pancit Canton', category:'food', sub:'Noodles & More', price:'₱25', from:25, available:true, featured:false, desc:'', imageUrl:'' },
   // ── NACHOS ───────────────────────────────────────────────────────
-  { id:'f36', name:'Regular Nachos',          category:'food', sub:'Nachos', price:'₱110', from:110, available:true, featured:false, desc:'', imageUrl:'' },
-  { id:'f37', name:'Chessy Overload Nachos',  category:'food', sub:'Nachos', price:'₱120', from:120, available:true, featured:false, desc:'', imageUrl:'' },
+  { id:'f36', name:'Regular Nachos',         category:'food', sub:'Nachos', price:'₱110', from:110, available:true, featured:false, desc:'', imageUrl:'' },
+  { id:'f37', name:'Chessy Overload Nachos', category:'food', sub:'Nachos', price:'₱120', from:120, available:true, featured:false, desc:'', imageUrl:'' },
 
   // ── PIZZA ─────────────────────────────────────────────────────────
-  { id:'p01', name:'Ham & Cheese Pizza',  category:'pizza', sub:'Pizza', price:'₱150', from:150, available:true, featured:false, desc:'Classic ham and cheese, freshly baked homemade style', imageUrl:'' },
-  { id:'p02', name:'Hawaiian Pizza',      category:'pizza', sub:'Pizza', price:'₱160', from:160, available:true, featured:false, desc:'Ham, pineapple, and loads of melted cheese',           imageUrl:'' },
-  { id:'p03', name:'Beef & Veggies Pizza',category:'pizza', sub:'Pizza', price:'₱175', from:175, available:true, featured:true,  desc:'Seasoned beef with fresh garden vegetables',           imageUrl:'' },
-  { id:'p04', name:'Supreme Pizza',       category:'pizza', sub:'Pizza', price:'₱175', from:175, available:true, featured:false, desc:'Loaded with all your favorite toppings',               imageUrl:'' },
-  { id:'p05', name:'4 Flavors Pizza',     category:'pizza', sub:'Pizza', price:'₱180', from:180, available:true, featured:true,  desc:'Four different flavors in one amazing pizza',          imageUrl:'' },
+  { id:'p01', name:'Ham & Cheese Pizza',   category:'pizza', sub:'Pizza', price:'₱150', from:150, available:true, featured:false, desc:'Classic ham and cheese, freshly baked homemade style', imageUrl:'' },
+  { id:'p02', name:'Hawaiian Pizza',       category:'pizza', sub:'Pizza', price:'₱160', from:160, available:true, featured:false, desc:'Ham, pineapple, and loads of melted cheese',          imageUrl:'' },
+  { id:'p03', name:'Beef & Veggies Pizza', category:'pizza', sub:'Pizza', price:'₱175', from:175, available:true, featured:true,  desc:'Seasoned beef with fresh garden vegetables',          imageUrl:'' },
+  { id:'p04', name:'Supreme Pizza',        category:'pizza', sub:'Pizza', price:'₱175', from:175, available:true, featured:false, desc:'Loaded with all your favorite toppings',              imageUrl:'' },
+  { id:'p05', name:'4 Flavors Pizza',      category:'pizza', sub:'Pizza', price:'₱180', from:180, available:true, featured:true,  desc:'Four different flavors in one amazing pizza',         imageUrl:'' },
 ];
 
-// ── Storage helpers ───────────────────────────────────────────────────────────
-function getMenuData() {
+// ── Row ↔ Item mapping ────────────────────────────────────────────────────────
+function rowToItem(r) {
+  return {
+    id:        r.id,
+    name:      r.name,
+    category:  r.category,
+    sub:       r.sub,
+    price:     r.price,
+    from:      r.from_price,
+    available: r.available,
+    featured:  r.featured,
+    desc:      r.description,
+    imageUrl:  r.image_url,
+  };
+}
+
+function itemToRow(i) {
+  return {
+    id:          i.id,
+    name:        i.name,
+    category:    i.category,
+    sub:         i.sub,
+    price:       i.price,
+    from_price:  i.from  || 0,
+    available:   i.available,
+    featured:    i.featured,
+    description: i.desc  || '',
+    image_url:   i.imageUrl || '',
+  };
+}
+
+// ── Menu CRUD (Supabase) ──────────────────────────────────────────────────────
+async function getMenuData() {
+  if (!SUPABASE_CONFIGURED || !supabaseClient) return DEFAULT_ITEMS;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : DEFAULT_ITEMS;
-  } catch { return DEFAULT_ITEMS; }
+    const { data, error } = await supabaseClient
+      .from('menu_items')
+      .select('*')
+      .order('category')
+      .order('from_price', { ascending: true });
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      await _seedDefaultItems();
+      return DEFAULT_ITEMS;
+    }
+    return data.map(rowToItem);
+  } catch (err) {
+    console.error('Supabase getMenuData error:', err);
+    return DEFAULT_ITEMS;
+  }
 }
 
-function saveMenuData(items) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+async function _seedDefaultItems() {
+  try {
+    await supabaseClient
+      .from('menu_items')
+      .insert(DEFAULT_ITEMS.map(itemToRow));
+  } catch (err) {
+    console.error('Seed error:', err);
+  }
 }
 
-function resetMenuData() {
-  localStorage.removeItem(STORAGE_KEY);
-  return DEFAULT_ITEMS;
+async function addMenuItem(item) {
+  const { error } = await supabaseClient
+    .from('menu_items')
+    .insert(itemToRow(item));
+  if (error) throw error;
 }
+
+async function updateMenuItem(item) {
+  const { error } = await supabaseClient
+    .from('menu_items')
+    .update(itemToRow(item))
+    .eq('id', item.id);
+  if (error) throw error;
+}
+
+async function deleteMenuItem(id) {
+  const { error } = await supabaseClient
+    .from('menu_items')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+}
+
+async function toggleMenuItemAvailability(id, available) {
+  const { error } = await supabaseClient
+    .from('menu_items')
+    .update({ available })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+async function resetMenuData() {
+  await supabaseClient.from('menu_items').delete().neq('id', '___');
+  await _seedDefaultItems();
+}
+
+// ── Image upload (Supabase Storage) ──────────────────────────────────────────
+async function uploadProductImage(file, itemId) {
+  const ext  = file.name.split('.').pop().toLowerCase();
+  const path = `${itemId}.${ext}`;
+  const { error } = await supabaseClient.storage
+    .from(IMAGE_BUCKET)
+    .upload(path, file, { upsert: true, contentType: file.type });
+  if (error) throw error;
+  const { data } = supabaseClient.storage
+    .from(IMAGE_BUCKET)
+    .getPublicUrl(path);
+  return data.publicUrl;
+}
+
+// ── Password helpers (localStorage — client-side only) ────────────────────────
+const PASS_KEY     = 'jacs_admin_pass';
+const DEFAULT_PASS = btoa('jacs2024');
+
+function getAdminPass()        { return localStorage.getItem(PASS_KEY) || DEFAULT_PASS; }
+function setAdminPass(plain)   { localStorage.setItem(PASS_KEY, btoa(plain)); }
+function checkAdminPass(plain) { return btoa(plain) === getAdminPass(); }
 
 function generateId() {
   return 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-}
-
-// ── Password helpers ──────────────────────────────────────────────────────────
-function getAdminPass() {
-  return localStorage.getItem(PASS_KEY) || DEFAULT_PASS;
-}
-
-function setAdminPass(plain) {
-  localStorage.setItem(PASS_KEY, btoa(plain));
-}
-
-function checkAdminPass(plain) {
-  return btoa(plain) === getAdminPass();
 }

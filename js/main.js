@@ -30,12 +30,22 @@
 })();
 
 /* ── Menu rendering ────────────────────────────────────────────────────── */
-function renderMenu(filterCat) {
-  const items     = getMenuData();
+let _currentTab = 'all';
+
+async function renderMenu(filterCat) {
+  _currentTab = filterCat;
   const container = document.getElementById('menuContent');
+  container.innerHTML = `
+    <div class="menu-loading">
+      <div class="loading-spinner"></div>
+      <span>Loading menu…</span>
+    </div>`;
+
+  const items = await getMenuData();
   container.innerHTML = '';
 
   const cats = filterCat === 'all' ? ['drinks','food','pizza'] : [filterCat];
+  let rendered = 0;
 
   cats.forEach(cat => {
     const meta     = MENU_META[cat];
@@ -44,7 +54,7 @@ function renderMenu(filterCat) {
 
     if (filterCat === 'all') {
       const h = document.createElement('div');
-      h.className = 'cat-header';
+      h.className = 'cat-header fade-in-row';
       h.innerHTML = `<span>${meta.icon}</span><span>${meta.label}</span>`;
       container.appendChild(h);
     }
@@ -57,16 +67,18 @@ function renderMenu(filterCat) {
       const icon = meta.icons[sub] || '•';
 
       const sh = document.createElement('div');
-      sh.className = 'sub-header';
+      sh.className = 'sub-header fade-in-row';
+      sh.style.animationDelay = `${rendered * 0.03}s`;
       sh.innerHTML = `<span>${icon}</span><span>${sub}</span>`;
       container.appendChild(sh);
 
       if (cat === 'pizza') {
         const grid = document.createElement('div');
         grid.className = 'pizza-grid';
-        subItems.forEach(item => {
+        subItems.forEach((item, i) => {
           const card = document.createElement('div');
-          card.className = 'pizza-card';
+          card.className = 'pizza-card fade-in-row';
+          card.style.animationDelay = `${(rendered + i) * 0.05}s`;
           card.innerHTML = `
             <div class="pizza-img">
               ${item.imageUrl
@@ -79,27 +91,38 @@ function renderMenu(filterCat) {
               <div class="pizza-price">${escHtml(item.price)}</div>
             </div>`;
           grid.appendChild(card);
+          rendered++;
         });
         container.appendChild(grid);
       } else {
         const list = document.createElement('div');
         list.className = 'menu-list';
-        subItems.forEach(item => {
+        subItems.forEach((item, i) => {
           const row = document.createElement('div');
-          row.className = 'menu-row';
+          row.className = 'menu-row fade-in-row';
+          row.style.animationDelay = `${(rendered + i) * 0.03}s`;
+          const imgHtml = item.imageUrl
+            ? `<img src="${escHtml(item.imageUrl)}" class="item-thumb" alt="" loading="lazy">`
+            : '';
           row.innerHTML = `
             <div class="item-icon">${icon}</div>
+            ${imgHtml}
             <div class="item-info">
               <div class="item-name">${escHtml(item.name)}</div>
               ${item.desc ? `<div class="item-desc">${escHtml(item.desc)}</div>` : ''}
             </div>
             <div class="item-price">${escHtml(item.price)}</div>`;
           list.appendChild(row);
+          rendered++;
         });
         container.appendChild(list);
       }
     });
   });
+
+  if (!rendered) {
+    container.innerHTML = `<div class="menu-loading"><span>No items available.</span></div>`;
+  }
 }
 
 function escHtml(str) {
@@ -115,6 +138,16 @@ function escHtml(str) {
     renderMenu(t.dataset.cat);
   }));
   renderMenu('all');
+
+  // Live-update from Supabase Realtime when admin makes changes
+  if (SUPABASE_CONFIGURED && supabaseClient) {
+    supabaseClient
+      .channel('menu-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, () => {
+        renderMenu(_currentTab);
+      })
+      .subscribe();
+  }
 })();
 
 /* ── Contact form ──────────────────────────────────────────────────────── */
