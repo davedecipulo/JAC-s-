@@ -26,6 +26,11 @@
 
     <a href="#menu" class="nav-cta">View Menu</a>
 
+    <button id="cartBtn" class="cart-btn" onclick="toggleCart()" aria-label="View your order">
+      🛒
+      <span id="cartBadge" class="cart-badge" style="display:none">0</span>
+    </button>
+
     <a href="admin/index.html" class="admin-login-btn" title="Admin Login" aria-label="Admin Login">
       <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
         <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
@@ -47,8 +52,10 @@
   <div id="mobileMenu">
     <a href="#home">Home</a>
     <a href="#about">About</a>
+    <a href="#gallery" id="galleryMobileLink" style="display:none">📷 Gallery</a>
     <a href="#menu">Menu</a>
     <a href="#contact">Contact</a>
+    <a href="#" onclick="toggleCart();return false;" style="color:#FBBF24;">🛒 View Order</a>
     <a href="admin/index.html" style="color:#FBBF24;">🔐 Admin Login</a>
   </div>
 </nav>
@@ -140,6 +147,19 @@
 </section>
 
 
+<!-- ═══════════════════════════ GALLERY ══════════════════════════ -->
+<section id="gallery" class="section gallery-section" style="display:none;">
+  <div class="section-inner">
+    <div style="text-align:center; margin-bottom:2rem;">
+      <p class="section-eyebrow">Our Space</p>
+      <h2 class="section-title" style="margin-bottom:0.5rem;">Inside the Haven</h2>
+      <p class="section-sub" style="margin:0 auto;">Get a peek at our cozy corner before you visit.</p>
+    </div>
+    <div id="galleryGrid" class="gallery-grid"></div>
+  </div>
+</section>
+
+
 <!-- ═══════════════════════════ MENU ══════════════════════════════ -->
 <section id="menu" class="section">
   <div class="section-inner">
@@ -223,6 +243,64 @@
     </div>
   </div>
 </section>
+
+
+<!-- ═══════════════════════ CART OVERLAY + DRAWER ════════════════ -->
+<div id="cartOverlay" class="cart-overlay" onclick="closeCart()"></div>
+
+<div id="cartDrawer" class="cart-drawer">
+  <div class="cart-header">
+    <span class="cart-title">🛒 Your Order</span>
+    <button class="cart-close" onclick="closeCart()" aria-label="Close cart">✕</button>
+  </div>
+
+  <div id="cartItems" class="cart-items"></div>
+
+  <div id="cartEmpty" class="cart-empty">
+    <div style="font-size:2.5rem">🛒</div>
+    <p style="font-weight:600;">Your order is empty</p>
+    <p style="font-size:0.8rem;color:#a8a29e;">Tap <strong>+</strong> on any menu item to add it here.</p>
+  </div>
+
+  <div id="cartFooter" class="cart-footer" style="display:none">
+    <div class="cart-total">
+      <span>Estimated Total</span>
+      <span id="cartTotal">₱0</span>
+    </div>
+    <div class="order-form">
+      <input class="form-input" id="orderName"  type="text"  placeholder="Your name *" autocomplete="name">
+      <input class="form-input" id="orderPhone" type="tel"   placeholder="Phone number *" autocomplete="tel">
+      <select class="form-input" id="orderType">
+        <option value="dine-in">Dine In</option>
+        <option value="takeout">Takeout / Pickup</option>
+      </select>
+      <textarea class="form-input" id="orderNotes" rows="2"
+        placeholder="Special instructions (optional)" style="resize:none;"></textarea>
+    </div>
+    <button class="btn-place-order" id="btnPlaceOrder" onclick="placeOrder()">
+      Place Order 🎉
+    </button>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════ SIZE PICKER MODAL ════════════════════ -->
+<div id="sizePickerOverlay" class="size-picker-overlay" onclick="closeSizePickerOnBg(event)">
+  <div class="size-picker-box">
+    <div class="size-picker-header">
+      <span id="sizePickerName" class="size-picker-name">Choose Size</span>
+      <button class="size-picker-close"
+        onclick="document.getElementById('sizePickerOverlay').classList.remove('open')">✕</button>
+    </div>
+    <div id="sizePickerOpts" class="size-picker-opts"></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════ ORDER SUCCESS TOAST ══════════════════ -->
+<div id="orderSuccessToast" class="order-success-toast">
+  🎉 Order placed! We'll start preparing it shortly.
+</div>
 
 
 <!-- ═══════════════════════════ FOOTER ════════════════════════════ -->

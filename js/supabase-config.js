@@ -7,7 +7,8 @@
 
 const SUPABASE_URL      = 'YOUR_SUPABASE_PROJECT_URL';
 const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
-const IMAGE_BUCKET      = 'product-images';
+const IMAGE_BUCKET        = 'product-images';
+const SHOP_PHOTOS_BUCKET  = 'shop-photos';
 
 const SUPABASE_CONFIGURED = !SUPABASE_URL.startsWith('YOUR_');
 

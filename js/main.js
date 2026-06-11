@@ -30,7 +30,8 @@
 })();
 
 /* ── Menu rendering ────────────────────────────────────────────────────── */
-let _currentTab = 'all';
+let _currentTab  = 'all';
+let _menuItems   = null;  // cached for cart use
 
 async function renderMenu(filterCat) {
   _currentTab = filterCat;
@@ -42,6 +43,7 @@ async function renderMenu(filterCat) {
     </div>`;
 
   const items = await getMenuData();
+  _menuItems = items;  // cache for addToCart
   container.innerHTML = '';
 
   const cats = filterCat === 'all' ? ['drinks','food','pizza'] : [filterCat];
@@ -89,7 +91,8 @@ async function renderMenu(filterCat) {
               <div class="pizza-name">${escHtml(item.name)}</div>
               ${item.desc ? `<div class="pizza-desc">${escHtml(item.desc)}</div>` : ''}
               <div class="pizza-price">${escHtml(item.price)}</div>
-            </div>`;
+            </div>
+            <button class="btn-add-order-pizza" onclick="addToCart('${escHtml(item.id)}')">Add to Order</button>`;
           grid.appendChild(card);
           rendered++;
         });
@@ -111,7 +114,8 @@ async function renderMenu(filterCat) {
               <div class="item-name">${escHtml(item.name)}</div>
               ${item.desc ? `<div class="item-desc">${escHtml(item.desc)}</div>` : ''}
             </div>
-            <div class="item-price">${escHtml(item.price)}</div>`;
+            <div class="item-price">${escHtml(item.price)}</div>
+            <button class="btn-add-order-sm" onclick="addToCart('${escHtml(item.id)}')" aria-label="Add to order">+</button>`;
           list.appendChild(row);
           rendered++;
         });
@@ -177,3 +181,245 @@ function escHtml(str) {
   el.textContent = open ? "🟢 We're Open Now!" : '🔴 Currently Closed';
   el.style.color = open ? '#86efac' : '#fca5a5';
 })();
+
+/* ── Gallery ─────────────────────────────────────────────────────────────── */
+async function renderGallery() {
+  const section = document.getElementById('gallery');
+  const grid    = document.getElementById('galleryGrid');
+  if (!section || !grid) return;
+
+  const photos = await getShopPhotos();
+  if (!photos.length) {
+    section.style.display = 'none';
+    const mLink = document.getElementById('galleryMobileLink');
+    if (mLink) mLink.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  const mLink = document.getElementById('galleryMobileLink');
+  if (mLink) mLink.style.display = 'block';
+
+  grid.innerHTML = photos.map(p => `
+    <div class="gallery-photo fade-in-row">
+      <img src="${escHtml(p.imageUrl)}" alt="${escHtml(p.caption || 'Shop photo')}" loading="lazy">
+      ${p.caption ? `<div class="gallery-caption">${escHtml(p.caption)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+(function () {
+  renderGallery();
+  if (SUPABASE_CONFIGURED && supabaseClient) {
+    supabaseClient
+      .channel('gallery-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shop_photos' }, () => {
+        renderGallery();
+      })
+      .subscribe();
+  }
+})();
+
+/* ── Cart state ──────────────────────────────────────────────────────────── */
+let _cart = [];
+
+function parsePriceOptions(priceStr) {
+  const parts = String(priceStr || '').split(/\s*·\s*/);
+  return parts.map(p => {
+    const m = p.match(/^(.*?)\s*₱(\d+(?:\.\d+)?)\s*$/);
+    if (m) return { label: m[1].trim(), price: parseFloat(m[2]) };
+    const n = p.match(/₱(\d+(?:\.\d+)?)/);
+    return { label: p.replace(/₱\d+/, '').trim(), price: n ? parseFloat(n[1]) : 0 };
+  });
+}
+
+function addToCart(itemId) {
+  const item = (_menuItems || []).find(i => i.id === itemId);
+  if (!item) return;
+  const opts = parsePriceOptions(item.price);
+  if (opts.length > 1) {
+    showSizePicker(item, opts);
+  } else {
+    _addItemToCart(item, opts[0]?.label || '', opts[0]?.price || item.from || 0);
+  }
+}
+
+function showSizePicker(item, opts) {
+  document.getElementById('sizePickerName').textContent = item.name;
+  const optsEl = document.getElementById('sizePickerOpts');
+  optsEl.innerHTML = opts.map((o, i) => `
+    <button class="size-opt-btn" onclick="pickSize('${escHtml(item.id)}',${i})">
+      <span>${escHtml(o.label || 'Regular')}</span>
+      <span class="size-opt-price">₱${o.price.toFixed(0)}</span>
+    </button>
+  `).join('');
+  document.getElementById('sizePickerOverlay').classList.add('open');
+}
+
+function pickSize(itemId, optIdx) {
+  const item = (_menuItems || []).find(i => i.id === itemId);
+  if (!item) return;
+  const opts = parsePriceOptions(item.price);
+  const opt  = opts[optIdx];
+  if (opt) _addItemToCart(item, opt.label || '', opt.price);
+  document.getElementById('sizePickerOverlay').classList.remove('open');
+}
+
+function closeSizePickerOnBg(e) {
+  if (e.target === document.getElementById('sizePickerOverlay')) {
+    document.getElementById('sizePickerOverlay').classList.remove('open');
+  }
+}
+
+function _addItemToCart(item, variant, price) {
+  const existing = _cart.find(c => c.itemId === item.id && c.variant === variant);
+  if (existing) {
+    existing.qty++;
+  } else {
+    _cart.push({
+      id:      'ci_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      itemId:  item.id,
+      name:    item.name,
+      variant,
+      price,
+      qty: 1,
+    });
+  }
+  _updateCartUI();
+  _flashCartBtn();
+}
+
+function removeFromCart(cartId) {
+  _cart = _cart.filter(c => c.id !== cartId);
+  _updateCartUI();
+}
+
+function updateCartQty(cartId, delta) {
+  const c = _cart.find(x => x.id === cartId);
+  if (!c) return;
+  c.qty = c.qty + delta;
+  if (c.qty <= 0) { removeFromCart(cartId); return; }
+  _updateCartUI();
+}
+
+function _updateCartUI() {
+  const count = _cart.reduce((s, c) => s + c.qty, 0);
+  const total = _cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const badge = document.getElementById('cartBadge');
+  if (badge) { badge.textContent = count; badge.style.display = count > 0 ? 'flex' : 'none'; }
+
+  const cartItemsEl = document.getElementById('cartItems');
+  const cartFooter  = document.getElementById('cartFooter');
+  const cartEmpty   = document.getElementById('cartEmpty');
+  const cartTotalEl = document.getElementById('cartTotal');
+  if (!cartItemsEl) return;
+
+  if (_cart.length === 0) {
+    cartEmpty.style.display  = 'flex';
+    cartFooter.style.display = 'none';
+    cartItemsEl.innerHTML    = '';
+  } else {
+    cartEmpty.style.display  = 'none';
+    cartFooter.style.display = 'block';
+    if (cartTotalEl) cartTotalEl.textContent = '₱' + total.toFixed(0);
+    cartItemsEl.innerHTML = _cart.map(c => `
+      <div class="cart-item">
+        <div class="cart-item-info">
+          <div class="cart-item-name">
+            ${escHtml(c.name)}${c.variant ? ` <span class="cart-item-variant">— ${escHtml(c.variant)}</span>` : ''}
+          </div>
+          <div class="cart-item-price">₱${c.price.toFixed(0)} each</div>
+        </div>
+        <div class="cart-item-controls">
+          <button onclick="updateCartQty('${c.id}',-1)" aria-label="Decrease">−</button>
+          <span>${c.qty}</span>
+          <button onclick="updateCartQty('${c.id}',1)"  aria-label="Increase">+</button>
+          <button onclick="removeFromCart('${c.id}')"
+            style="border-color:#fca5a5;color:#b91c1c;" aria-label="Remove">✕</button>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+function _flashCartBtn() {
+  const btn = document.getElementById('cartBtn');
+  if (!btn) return;
+  btn.style.transition = 'transform 0.15s';
+  btn.style.transform  = 'scale(1.3)';
+  setTimeout(() => { btn.style.transform = ''; }, 200);
+}
+
+/* ── Cart open / close ───────────────────────────────────────────────────── */
+function toggleCart() {
+  const drawer  = document.getElementById('cartDrawer');
+  const overlay = document.getElementById('cartOverlay');
+  if (!drawer) return;
+  if (drawer.classList.contains('open')) { closeCart(); } else {
+    drawer.classList.add('open');
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeCart() {
+  const drawer  = document.getElementById('cartDrawer');
+  const overlay = document.getElementById('cartOverlay');
+  if (!drawer) return;
+  drawer.classList.remove('open');
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeCart();
+    document.getElementById('sizePickerOverlay')?.classList.remove('open');
+  }
+});
+
+/* ── Place order ─────────────────────────────────────────────────────────── */
+async function placeOrder() {
+  const name  = (document.getElementById('orderName')?.value  || '').trim();
+  const phone = (document.getElementById('orderPhone')?.value || '').trim();
+  if (!name)  { document.getElementById('orderName').focus();  return; }
+  if (!phone) { document.getElementById('orderPhone').focus(); return; }
+  if (_cart.length === 0) return;
+
+  const btn = document.getElementById('btnPlaceOrder');
+  if (btn) { btn.disabled = true; btn.textContent = 'Placing order…'; }
+
+  const order = {
+    id:            generateId(),
+    customerName:  name,
+    customerPhone: phone,
+    orderType:     document.getElementById('orderType')?.value || 'dine-in',
+    notes:         (document.getElementById('orderNotes')?.value || '').trim(),
+    items:         _cart.map(c => ({
+      itemId: c.itemId, name: c.name, variant: c.variant, price: c.price, qty: c.qty,
+    })),
+  };
+
+  try {
+    await createOrder(order);
+    _cart = [];
+    _updateCartUI();
+    document.getElementById('orderName').value  = '';
+    document.getElementById('orderPhone').value = '';
+    document.getElementById('orderNotes').value = '';
+    closeCart();
+    _showOrderSuccess();
+  } catch (err) {
+    console.error('Order error:', err);
+    alert('Could not place order. Please try again.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Place Order 🎉'; }
+  }
+}
+
+function _showOrderSuccess() {
+  const toast = document.getElementById('orderSuccessToast');
+  if (!toast) return;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 5000);
+}

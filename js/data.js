@@ -253,3 +253,112 @@ function checkAdminPass(plain) { return btoa(plain) === getAdminPass(); }
 function generateId() {
   return 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
 }
+
+// ── Shop Gallery ──────────────────────────────────────────────────────────────
+const GALLERY_LS_KEY = 'jacs_gallery';
+
+async function getShopPhotos() {
+  if (!SUPABASE_CONFIGURED || !supabaseClient) {
+    try { return JSON.parse(localStorage.getItem(GALLERY_LS_KEY) || '[]'); } catch { return []; }
+  }
+  try {
+    const { data, error } = await supabaseClient
+      .from('shop_photos').select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return (data || []).map(r => ({ id: r.id, caption: r.caption, imageUrl: r.image_url }));
+  } catch (err) {
+    console.error('getShopPhotos:', err);
+    return [];
+  }
+}
+
+async function addShopPhotoRecord(photo) {
+  if (!SUPABASE_CONFIGURED || !supabaseClient) {
+    const photos = await getShopPhotos();
+    photos.push(photo);
+    localStorage.setItem(GALLERY_LS_KEY, JSON.stringify(photos));
+    return;
+  }
+  const { error } = await supabaseClient.from('shop_photos').insert({
+    id: photo.id, caption: photo.caption || '', image_url: photo.imageUrl, sort_order: 0,
+  });
+  if (error) throw error;
+}
+
+async function deleteShopPhoto(id) {
+  if (!SUPABASE_CONFIGURED || !supabaseClient) {
+    const photos = await getShopPhotos();
+    localStorage.setItem(GALLERY_LS_KEY, JSON.stringify(photos.filter(p => p.id !== id)));
+    return;
+  }
+  const { error } = await supabaseClient.from('shop_photos').delete().eq('id', id);
+  if (error) throw error;
+}
+
+async function uploadShopPhoto(file, photoId) {
+  const ext  = file.name.split('.').pop().toLowerCase();
+  const path = `gallery_${photoId}.${ext}`;
+  const { error } = await supabaseClient.storage
+    .from(SHOP_PHOTOS_BUCKET)
+    .upload(path, file, { upsert: true, contentType: file.type });
+  if (error) throw error;
+  const { data } = supabaseClient.storage.from(SHOP_PHOTOS_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+// ── Orders ────────────────────────────────────────────────────────────────────
+const ORDERS_LS_KEY = 'jacs_orders';
+
+async function createOrder(order) {
+  const record = {
+    id:             order.id,
+    customer_name:  order.customerName,
+    customer_phone: order.customerPhone,
+    order_type:     order.orderType,
+    notes:          order.notes || '',
+    items:          order.items,
+    status:         'pending',
+    created_at:     new Date().toISOString(),
+    updated_at:     new Date().toISOString(),
+  };
+  if (!SUPABASE_CONFIGURED || !supabaseClient) {
+    const orders = _getLocalOrders();
+    orders.unshift(record);
+    localStorage.setItem(ORDERS_LS_KEY, JSON.stringify(orders));
+    return;
+  }
+  const { error } = await supabaseClient.from('orders').insert(record);
+  if (error) throw error;
+}
+
+async function getOrders() {
+  if (!SUPABASE_CONFIGURED || !supabaseClient) return _getLocalOrders();
+  try {
+    const { data, error } = await supabaseClient
+      .from('orders').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error('getOrders:', err);
+    return [];
+  }
+}
+
+async function updateOrderStatus(id, status) {
+  if (!SUPABASE_CONFIGURED || !supabaseClient) {
+    const orders = _getLocalOrders();
+    const o = orders.find(x => x.id === id);
+    if (o) { o.status = status; o.updated_at = new Date().toISOString(); }
+    localStorage.setItem(ORDERS_LS_KEY, JSON.stringify(orders));
+    return;
+  }
+  const { error } = await supabaseClient.from('orders')
+    .update({ status, updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) throw error;
+}
+
+function _getLocalOrders() {
+  try { return JSON.parse(localStorage.getItem(ORDERS_LS_KEY) || '[]'); } catch { return []; }
+}
