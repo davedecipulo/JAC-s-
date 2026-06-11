@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>JAC's Admin Panel</title>
   <script>(function(){const t=localStorage.getItem('theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');})();</script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -839,8 +840,10 @@
   <div id="panel-orders" class="tab-panel">
     <div class="stats-row" id="orderStats"></div>
 
-    <div class="toolbar" style="justify-content:flex-end;">
+    <div class="toolbar" style="justify-content:flex-end;gap:0.5rem;flex-wrap:wrap;">
       <button class="order-refresh-btn" onclick="refreshOrdersAdmin()">↺ Refresh</button>
+      <button class="btn-edit" onclick="exportOrdersExcel()" style="background:#16a34a;color:#fff;border-color:#16a34a;">⬇ Export to Excel</button>
+      <button class="btn-del" onclick="clearCompletedOrders()">🗑 Clear History</button>
     </div>
 
     <div class="table-wrap">
@@ -1744,6 +1747,71 @@ async function moveOrderStatus(id, status) {
     showToast(`Order marked as "${status}" ✓`);
   } catch (err) {
     showToast('Error: ' + err.message);
+  }
+}
+
+// ── Export to Excel ───────────────────────────────────────────────────────────
+function exportOrdersExcel() {
+  if (!cachedOrders.length) { showToast('No orders to export.'); return; }
+
+  const rows = cachedOrders.map((order, idx) => {
+    const items = Array.isArray(order.items) ? order.items
+      : (typeof order.items === 'string' ? JSON.parse(order.items || '[]') : []);
+    const deliveryFee = parseFloat(order.delivery_fee || 0);
+    const itemsTotal  = items.reduce((s, i) => s + parseFloat(i.price || 0) * parseInt(i.qty || 1, 10), 0);
+    const grandTotal  = itemsTotal + deliveryFee;
+    const itemsSummary = items.map(i => `${i.name}${i.variant ? ' ('+i.variant+')' : ''} x${i.qty || 1}`).join('; ');
+    const date = new Date(order.created_at).toLocaleString('en-PH', {
+      year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'
+    });
+    return {
+      '#':            idx + 1,
+      'Order Ref':    (order.id || '').slice(-6).toUpperCase(),
+      'Customer':     order.customer_name,
+      'Phone':        order.customer_phone || '',
+      'Order Type':   order.order_type,
+      'Items':        itemsSummary,
+      'Notes':        order.notes || '',
+      'Delivery Fee': deliveryFee > 0 ? deliveryFee : '',
+      'Total (₱)':    grandTotal,
+      'Status':       order.status,
+      'Date':         date,
+      'Delivery Addr':order.delivery_address || '',
+    };
+  });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [
+    {wch:4},{wch:10},{wch:20},{wch:14},{wch:12},
+    {wch:40},{wch:20},{wch:12},{wch:10},{wch:12},{wch:22},{wch:30}
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Orders');
+
+  const today = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `jacs-orders-${today}.xlsx`);
+  showToast('Orders exported to Excel ✓');
+}
+
+// ── Clear Order History ────────────────────────────────────────────────────────
+async function clearCompletedOrders() {
+  const completed = cachedOrders.filter(o => o.status === 'completed' || o.status === 'cancelled');
+  if (!completed.length) { showToast('No completed or cancelled orders to clear.'); return; }
+
+  const confirmed = confirm(
+    `Clear ${completed.length} completed/cancelled order${completed.length > 1 ? 's' : ''}?\n\nThis cannot be undone. Active orders will not be affected.`
+  );
+  if (!confirmed) return;
+
+  try {
+    await deleteCompletedOrders();
+    cachedOrders = cachedOrders.filter(o => o.status !== 'completed' && o.status !== 'cancelled');
+    renderOrdersTable();
+    updateOrderStats();
+    updateOrdersBadge();
+    showToast(`${completed.length} order${completed.length > 1 ? 's' : ''} cleared ✓`);
+  } catch (err) {
+    showToast('Error clearing orders: ' + err.message);
   }
 }
 

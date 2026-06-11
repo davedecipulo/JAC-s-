@@ -377,18 +377,19 @@ const ORDERS_LS_KEY = 'jacs_orders';
 
 async function createOrder(order) {
   const record = {
-    id:               order.id,
-    customer_name:    order.customerName,
-    customer_phone:   order.customerPhone,
-    order_type:       order.orderType,
-    notes:            order.notes || '',
-    items:            order.items,
-    status:           'pending',
-    delivery_address: order.deliveryAddress || '',
-    delivery_fee:     order.deliveryFee     || 0,
-    created_at:       new Date().toISOString(),
-    updated_at:       new Date().toISOString(),
+    id:             order.id,
+    customer_name:  order.customerName,
+    customer_phone: order.customerPhone,
+    order_type:     order.orderType,
+    notes:          order.notes || '',
+    items:          order.items,
+    status:         'pending',
+    created_at:     new Date().toISOString(),
+    updated_at:     new Date().toISOString(),
   };
+  // Only included when the DB migration has been applied and it's a delivery order
+  if (order.deliveryAddress) record.delivery_address = order.deliveryAddress;
+  if (order.deliveryFee)     record.delivery_fee     = order.deliveryFee;
   if (!SUPABASE_CONFIGURED || !supabaseClient) {
     const orders = _getLocalOrders();
     orders.unshift(record);
@@ -427,4 +428,16 @@ async function updateOrderStatus(id, status) {
 
 function _getLocalOrders() {
   try { return JSON.parse(localStorage.getItem(ORDERS_LS_KEY) || '[]'); } catch { return []; }
+}
+
+async function deleteCompletedOrders() {
+  if (!SUPABASE_CONFIGURED || !supabaseClient) {
+    const orders = _getLocalOrders().filter(o => o.status !== 'completed' && o.status !== 'cancelled');
+    localStorage.setItem(ORDERS_LS_KEY, JSON.stringify(orders));
+    return;
+  }
+  const { error } = await supabaseClient.from('orders')
+    .delete()
+    .in('status', ['completed', 'cancelled']);
+  if (error) throw error;
 }
